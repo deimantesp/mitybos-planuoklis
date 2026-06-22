@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mitybos planuoklis</title>
+<style>
+  :root{
+    --bg:#f4f1ea; --card:#ffffff; --ink:#23291f; --muted:#7c8470;
+    --line:#e3ddd0; --moss:#5C7C28; --moss-2:#A8D44A; --moss-soft:#eef4e0;
+    --kcal:#E8833A; --carb:#E0A91B; --prot:#5C7C28; --fat:#3E78B0;
+    --shadow:0 1px 3px rgba(0,0,0,.06),0 6px 18px rgba(0,0,0,.05);
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+  header{padding:22px 20px 14px;max-width:1100px;margin:0 auto}
+  h1{margin:0;font-size:25px;letter-spacing:-.02em}
+  h1 .leaf{color:var(--moss)}
+  .sub{color:var(--muted);font-size:14px;margin-top:3px}
+
+  nav{position:sticky;top:0;z-index:20;background:rgba(244,241,234,.92);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line)}
+  .tabs{max-width:1100px;margin:0 auto;display:flex;gap:6px;padding:10px 16px;overflow-x:auto}
+  .tab{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 15px;border-radius:999px;
+    font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s}
+  .tab:hover{border-color:var(--moss-2)}
+  .tab.active{background:var(--moss);color:#fff;border-color:var(--moss)}
+  .tab .count{opacity:.6;font-weight:500;margin-left:5px;font-size:12px}
+  .tab.active .count{opacity:.8}
+
+  main{max-width:1100px;margin:0 auto;padding:18px 16px 60px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+  .toolbar .hint{color:var(--muted);font-size:13px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:15px 15px 13px;
+    box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px}
+  .card.picked{border-color:var(--moss);box-shadow:0 0 0 2px var(--moss-soft),var(--shadow)}
+  .card h3{margin:0;font-size:15.5px;letter-spacing:-.01em;display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+  .src-badge{font-size:11px;font-weight:600;color:var(--muted);background:#ede9e0;border-radius:5px;padding:1px 6px;letter-spacing:.02em;flex-shrink:0}
+  .macros{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;display:inline-flex;gap:4px;align-items:center}
+  .chip .lbl{font-weight:600;opacity:.7}
+  .chip.kcal{background:#fbe9da;color:var(--kcal)}
+  .chip.a{background:#fbf0cf;color:#9a7400}
+  .chip.b{background:var(--moss-soft);color:var(--moss)}
+  .chip.r{background:#e2edf6;color:var(--fat)}
+  .card .actions{display:flex;gap:8px;margin-top:2px}
+  .btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:7px 11px;
+    font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--moss-2)}
+  .btn.primary{background:var(--moss);color:#fff;border-color:var(--moss)}
+  .btn.pick.on{background:var(--moss);color:#fff;border-color:var(--moss)}
+  .recipe{display:none;border-top:1px dashed var(--line);padding-top:10px}
+  .recipe.open{display:block}
+  .rec-section{margin-bottom:8px}
+  .rec-section:last-child{margin-bottom:0}
+  .rec-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+  .ing-tags{display:flex;flex-wrap:wrap;gap:5px}
+  .ing-tag{font-size:12.5px;background:var(--moss-soft);color:#2d5a27;border-radius:6px;padding:3px 8px;line-height:1.3}
+  .rec-steps{font-size:13.5px;color:#444;line-height:1.6;white-space:pre-line}
+
+  /* Kalendorius */
+  .cal-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+  .qf-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .qf-row label{font-size:13px;font-weight:600;min-width:74px}
+  select{font-family:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);max-width:230px}
+  .cal-wrap{overflow-x:auto}
+  table.cal{border-collapse:separate;border-spacing:0;width:100%;min-width:780px;background:var(--card);
+    border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  table.cal th,table.cal td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:8px;vertical-align:top}
+  table.cal th{background:var(--moss-soft);font-size:13px;text-align:left;position:sticky;left:0}
+  table.cal thead th{background:var(--moss);color:#fff;text-align:center;font-size:13.5px}
+  table.cal thead th:first-child{background:var(--moss)}
+  table.cal td:last-child,table.cal th:last-child{border-right:none}
+  .slot-label{font-weight:700;font-size:13px;color:var(--moss)}
+  .cell select{width:100%;max-width:none}
+  .cell .cell-kcal{font-size:11px;color:var(--muted);margin-top:4px}
+  .day-total{background:#faf8f2;font-size:12px}
+  .day-total b{color:var(--ink)}
+  .summary{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;flex:1;min-width:140px}
+  .stat .n{font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .stat .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+  .empty{color:var(--muted);font-size:14px;padding:30px 0;text-align:center}
+
+  /* Pirkinių sąrašas */
+  .modes{display:flex;gap:6px}
+  .modes .btn.on{background:var(--moss);color:#fff;border-color:var(--moss)}
+  .shop-group{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:13px 16px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .shop-group h3{margin:0 0 4px;font-size:15px}
+  .shop-group .tag{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px;display:block}
+  .shop-item{display:flex;gap:9px;align-items:flex-start;padding:5px 0;font-size:14px;border-top:1px solid var(--line)}
+  .shop-item:first-of-type{border-top:none}
+  .shop-item input{margin-top:2px;width:17px;height:17px;accent-color:var(--moss);flex:none;cursor:pointer}
+  .shop-item.checked label{text-decoration:line-through;color:var(--muted)}
+  .shop-item label{cursor:pointer}
+  .shop-item .src{color:var(--muted);font-size:12px;margin-left:auto;padding-left:8px;white-space:nowrap}
+  .shop-item .del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:0 0 0 6px;margin-left:auto}
+  .shop-item .del:hover{color:#c0392b}
+  .extras-add{display:flex;gap:8px;margin-top:10px}
+  .extras-add input[type=text]{flex:1;font-family:inherit;font-size:14px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+  .extras-add input[type=text]:focus{outline:2px solid var(--moss);border-color:transparent}
+
+  /* Receptų redagavimo modalas */
+  .edit-overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:200;display:none;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto}
+  .edit-dialog{background:var(--card);border-radius:var(--radius);padding:22px;width:100%;max-width:540px;margin:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+  .edit-dialog h2{margin:0 0 18px;font-size:18px;letter-spacing:-.01em}
+  .edit-field{margin-bottom:13px;display:flex;flex-direction:column;gap:4px}
+  .edit-field>label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .edit-field input,.edit-field textarea{font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);width:100%}
+  .edit-field input:focus,.edit-field textarea:focus{outline:2px solid var(--moss);border-color:transparent}
+  .edit-field textarea{resize:vertical;min-height:130px;line-height:1.55}
+  .edit-macros{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .edit-macros .edit-field{margin-bottom:0}
+  .edit-footer{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;align-items:center}
+  .edit-footer .spacer{flex:1}
+  .edit-badge{display:inline-block;font-size:10px;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 6px;font-weight:700;vertical-align:middle;margin-left:5px}
+  .edit-export-box{margin-top:14px;display:none}
+  .edit-export-box textarea{width:100%;font-family:monospace;font-size:11.5px;min-height:180px;resize:vertical;padding:8px;border:1px solid var(--line);border-radius:8px;color:#444}
+  .btn-danger{color:#c0392b;border-color:#e8c5c5}
+  .btn-danger:hover{background:#fdf0f0}
+  .hint-sm{font-size:12px;color:var(--muted);margin-top:5px}
+
+  @media print{
+    nav,.toolbar,.cal-tools,.actions,.tab{display:none!important}
+    body{background:#fff}
+    .summary{break-inside:avoid}
+  }
+  @media(max-width:560px){ h1{font-size:21px} .grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="leaf">🌿</span> Mitybos planuoklis</h1>
+  <div class="sub">Pasirink patiekalus iš bibliotekos ir sudėk savaitės valgiaraštį. Receptai iš „Laikas keistis" programų.</div>
+</header>
+
+<nav><div class="tabs" id="tabs"></div></nav>
+
+<main id="view"></main>
+
+<!-- Receptų redagavimo modalas -->
+<div class="edit-overlay" id="edit-overlay">
+  <div class="edit-dialog">
+    <h2>Redaguoti receptą</h2>
+    <input type="hidden" id="edit-id">
+    <input type="hidden" id="edit-catkey">
+    <div class="edit-field">
+      <label>Pavadinimas</label>
+      <input type="text" id="edit-name">
+    </div>
+    <div class="edit-macros">
+      <div class="edit-field"><label>kcal</label><input type="number" id="edit-kcal" min="0"></div>
+      <div class="edit-field"><label>A (angliavandeniai)</label><input type="number" id="edit-a" min="0" step="0.1"></div>
+      <div class="edit-field"><label>B (baltymai)</label><input type="number" id="edit-b" min="0" step="0.1"></div>
+      <div class="edit-field"><label>R (riebalai)</label><input type="number" id="edit-r" min="0" step="0.1"></div>
+    </div>
+    <div class="edit-field" style="margin-top:6px">
+      <label>Ingredientai <span style="font-weight:400;text-transform:none;letter-spacing:0">(vienas per eilutę)</span></label>
+      <textarea id="edit-ings" style="min-height:90px"></textarea>
+    </div>
+    <div class="edit-field">
+      <label>Gaminimo eiga</label>
+      <textarea id="edit-steps"></textarea>
+    </div>
+    <div class="edit-footer">
+      <button class="btn primary" id="edit-save">Išsaugoti</button>
+      <button class="btn" id="edit-cancel">Atšaukti</button>
+      <div class="spacer"></div>
+      <button class="btn btn-danger" id="edit-revert" style="display:none">Atstatyti pradinį</button>
+    </div>
+    <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+      <button class="btn" id="edit-export-btn" style="font-size:12px">📤 Eksportuoti visus pakeitimus</button>
+      <p class="hint-sm">Nukopijuokite ir atnaujinkite meals-data.js — tada pakeitimai veiks ir telefone.</p>
+      <div class="edit-export-box" id="edit-export-box">
+        <textarea id="edit-export-out" readonly onclick="this.select()"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="meals-data.js"></script>
+<script>
+const CATS = [
+  {key:"pusryciai", label:"🍳 Pusryčiai"},
+  {key:"pietus",    label:"🥘 Pietūs"},
+  {key:"uzkandis",  label:"🍎 Užkandžiai"},
+  {key:"vakariene", label:"🥗 Vakarienė"},
+  {key:"desertas",  label:"🍫 Desertai"},
+];
+const SLOTS = [
+  {key:"pusryciai", label:"Pusryčiai"},
+  {key:"pietus",    label:"Pietūs"},
+  {key:"desertas",  label:"Desertas"},
+  {key:"uzkandis",  label:"Užkandis"},
+  {key:"vakariene", label:"Vakarienė"},
+];
+const DAYS = [
+  {key:"pir",label:"Pirmadienis",short:"Pir"},{key:"an",label:"Antradienis",short:"An"},
+  {key:"tr",label:"Trečiadienis",short:"Tr"},{key:"kt",label:"Ketvirtadienis",short:"Kt"},
+  {key:"pn",label:"Penktadienis",short:"Pn"},{key:"st",label:"Šeštadienis",short:"Št"},
+  {key:"sk",label:"Sekmadienis",short:"Sk"},
+];
+const MEALS = window.MEALS.map((m,i)=>({...m,id:i}));
+const byCat = k => MEALS.filter(m=>m.cat===k);
+const mealById = id => MEALS[id];
+
+// ---- Ingredientų ištraukimas pirkinių sąrašui ----
+// Prieskonius/druską ir pan. praleidžiam (mitybos plane jie laikomi "visada turimais")
+const STAPLE_RE=/(prieskon|druska|pipir|cinamon|vanil|saldikl|kepimo miltel|žolel|persilad|citrinpipir|žiupsn|provanso|pagal skonį|skonio laš|^vanduo|^actas)/i;
+function isStaple(s){ return STAPLE_RE.test(s.toLowerCase().trim()); }
+function ingredientsOf(m){
+  if(!m||!m.rec) return [];
+  let line=m.rec.split("\n")[0]; // ingredientai = pirma receptų eilutė
+  line=line.replace(/(Patiekimui|Padažui|Padažas|Padažo|Įdarui|Garnyrui|Marinatui|Bulvių košei|Bulvių košė|Lašišos marinatui|Spurgytėms)\s*:/gi,"·");
+  const out=[];
+  line.split(/\s·\s|·|,\s/).forEach(p=>{
+    p=p.trim().replace(/[.\s]+$/,"").trim();
+    p=p.replace(/^(\d+)\s*[×x]\s*(\d+)/,(_,n,v)=>String(+n * +v)); // "2×20g" → "40g"
+    if(p && !isStaple(p) && !out.includes(p)) out.push(p);
+  });
+  return out;
+}
+
+// Išskaido ingredientą į {qty, unit, name}: "150g vištienos" → {qty:150, unit:"g", name:"vištienos"}
+function parseIng(ing){
+  const fracs={'½':0.5,'¼':0.25,'¾':0.75,'⅓':1/3,'⅔':2/3};
+  let s=ing.trim(), qty=null, unit='';
+  for(const [f,v] of Object.entries(fracs)){
+    if(s.startsWith(f)){qty=v;s=s.slice(f.length).trim();break;}
+  }
+  if(qty===null){const m=s.match(/^(\d+(?:[.,]\d+)?)(-\d+)?(.*)/s);if(m){qty=parseFloat(m[1].replace(',','.'));s=m[3].trim();}}
+  if(qty!==null){const um=s.match(/^(g|kg|ml|l|v\.š\.|a\.š\.|vnt\.?)\s*(.*)/i);if(um){unit=um[1];s=um[2].trim();}}
+  return {qty,unit,name:s};
+}
+// Formatuoja susumuotą kiekį atgal į tekstą
+function fmtQty(tot){return Number.isInteger(tot)?String(tot):String(Math.round(tot*10)/10);}
+
+// Normalizuoja ingrediento pavadinimą: skirtingos formos → vienas pavadinimas
+function normalizeName(name){
+  const s=name.toLowerCase().trim();
+  if(/kiaušini/.test(s)&&!/makaronų/.test(s)) return 'kiaušinis';
+  if(/svogūn/.test(s)) return 'svogūnas';
+  if(/^česnak/.test(s)) return 'česnakas';
+  if(/pievagrybiai?|pievagrybių/.test(s)) return 'pievagrybiai';
+  if(/^(sunokęs\s+|šaldytas\s+)?bananas?$/.test(s)||s==='banano') return 'bananas';
+  if(/^avokado/.test(s)) return 'avokado';
+  if(/^liesos?\s+varškės?$/.test(s)||/^varškės?$/.test(s)||/^[\d,\.]+%\s+varškės?$/.test(s)) return 'varškė';
+  // Pienas ir jo variantai (augalinis, kokosų — prieš bendrą pienas tikrinimą)
+  if(/augalin/.test(s)&&/pien/.test(s)) return 'augalinis pienas';
+  if(/kokos/.test(s)&&/pien/.test(s)) return 'kokosų pienas';
+  if(s==='pienas'||s==='pieno') return 'pienas';
+  // Pomidorų padažas
+  if(/pomidorų\s+padaž/.test(s)) return 'pomidorų padažas';
+  if(/grūdėt/.test(s)&&/5%/.test(s)) return 'grūdėtoji varškė 5%';
+  if(/jogurt/.test(s)) return 'jogurtas';
+  if(/kremini.*sūri|tepamo\s+kremini/.test(s)) return 'kreminis sūris';
+  if(/mocarelo/.test(s)) return 'mocarela';
+  if(/(kietojo?|kieto|tarkuoto)\s+sūri/.test(s)) return 'kietasis sūris';
+  if(/(rūkyto|sūdyto).*lašiš/.test(s)) return 'rūkyta lašiša';
+  if(/^vištienos?(\s+filė)?$/.test(s)||s==='vištiena') return 'vištiena';
+  if(/^(nedidelis\s+)?agurk[uoai]/.test(s)) return 'agurkas';
+  if(/džiugo/.test(s)) return 'Džiugo sūris';
+  // Kepimo riebalai: ghee, aliejus ir visi jų variantai → vienas produktas
+  if(/ghee|aliej/.test(s)) return 'ghee / aliejus';
+  // Salotų lapai variantai (lapinės salotos, iceberg ir kt.)
+  if(/salotų\s+lapai?|iceberg|lapinės?\s+salot/.test(s)) return 'salotų lapai';
+  // Sezamo sėklos variantai
+  if(/sezam/.test(s)) return 'sezamo sėklos';
+  // Duona ir jos variantai
+  if(/duon|bandelė/.test(s)) return 'duona';
+  // Uogos (ne alyvuogės)
+  if(/uog/.test(s)&&!/alyvuog/.test(s)) return 'uogos';
+  // Paprika (visi variantai)
+  if(/^(mini\s+)?paprik/.test(s)||s==='paprika') return 'paprika';
+  // Riešutų sviestas (ne riešutai)
+  if(/riešutų\s+sviest/.test(s)) return 'riešutų sviestas';
+  // Pomidorai — ne konservai, ne padažas, ne jei prasideda "daržovės"
+  if(/pomidor/.test(s)&&!/padaž|past|skardinė|^daržov/.test(s)) return 'pomidoras';
+  return name;
+}
+
+// ---- State (localStorage) ----
+const LS = "mitybos-planas-v1";
+let state = load();
+function load(){
+  try{const s=JSON.parse(localStorage.getItem(LS)); if(s&&s.plan) return s;}catch(e){}
+  return {plan:{}, pool:{pusryciai:[],pietus:[],uzkandis:[],vakariene:[],desertas:[]}, checked:{}, extras:[]};
+}
+function save(){ localStorage.setItem(LS, JSON.stringify(state)); }
+
+// ---- Receptų redagavimas ----
+const LS_EDITS = "mitybos-receptai-v1";
+let editedMeals = {};
+function loadEdits(){
+  try{ editedMeals=JSON.parse(localStorage.getItem(LS_EDITS))||{}; }catch(e){ editedMeals={}; }
+  Object.entries(editedMeals).forEach(([id,data])=>{ const m=MEALS[+id]; if(m) Object.assign(m,data); });
+}
+function saveEdit(id,data){
+  editedMeals[String(id)]=data;
+  localStorage.setItem(LS_EDITS,JSON.stringify(editedMeals));
+  Object.assign(MEALS[id],data);
+}
+function revertEdit(id){
+  delete editedMeals[String(id)];
+  localStorage.setItem(LS_EDITS,JSON.stringify(editedMeals));
+  Object.assign(MEALS[id],window.MEALS[id]);
+}
+function openEditModal(id,catKey){
+  const m=MEALS[id];
+  document.getElementById('edit-id').value=id;
+  document.getElementById('edit-catkey').value=catKey;
+  document.getElementById('edit-name').value=m.name;
+  document.getElementById('edit-kcal').value=m.kcal;
+  document.getElementById('edit-a').value=m.a;
+  document.getElementById('edit-b').value=m.b;
+  document.getElementById('edit-r').value=m.r;
+  const recLines=(m.rec||'').split('\n');
+  const ingsLine=recLines[0]||'';
+  const stepsText=recLines.slice(1).join('\n').trim();
+  document.getElementById('edit-ings').value=ingsLine.split(/\s·\s|·/).map(s=>s.trim()).filter(Boolean).join('\n');
+  document.getElementById('edit-steps').value=stepsText;
+  document.getElementById('edit-revert').style.display=editedMeals[String(id)]?'':'none';
+  document.getElementById('edit-export-box').style.display='none';
+  document.getElementById('edit-overlay').style.display='flex';
+}
+function initEditModal(){
+  document.getElementById('edit-save').onclick=()=>{
+    const id=+document.getElementById('edit-id').value;
+    const catKey=document.getElementById('edit-catkey').value;
+    saveEdit(id,{
+      name:document.getElementById('edit-name').value.trim(),
+      kcal:+document.getElementById('edit-kcal').value,
+      a:+document.getElementById('edit-a').value,
+      b:+document.getElementById('edit-b').value,
+      r:+document.getElementById('edit-r').value,
+      rec:(()=>{
+        const ings=document.getElementById('edit-ings').value.split('\n').map(s=>s.trim()).filter(Boolean).join(' · ');
+        const steps=document.getElementById('edit-steps').value.trim();
+        return steps ? ings+'\n'+steps : ings;
+      })(),
+    });
+    document.getElementById('edit-overlay').style.display='none';
+    renderLibrary(catKey); renderTabs();
+  };
+  document.getElementById('edit-cancel').onclick=()=>{ document.getElementById('edit-overlay').style.display='none'; };
+  document.getElementById('edit-overlay').onclick=e=>{ if(e.target===e.currentTarget) document.getElementById('edit-overlay').style.display='none'; };
+  document.getElementById('edit-revert').onclick=()=>{
+    const id=+document.getElementById('edit-id').value;
+    const catKey=document.getElementById('edit-catkey').value;
+    if(!confirm('Atstatyti pradinį receptą? Pakeitimai bus prarasti.')) return;
+    revertEdit(id);
+    document.getElementById('edit-overlay').style.display='none';
+    renderLibrary(catKey); renderTabs();
+  };
+  document.getElementById('edit-export-btn').onclick=()=>{
+    const ids=Object.keys(editedMeals);
+    if(!ids.length){ alert('Nėra išsaugotų pakeitimų.'); return; }
+    const lines=ids.map(id=>{
+      const orig=window.MEALS[+id], d=editedMeals[id];
+      const merged={...orig,...d};
+      return `  {cat:"${merged.cat}",src:"${merged.src||''}",name:${JSON.stringify(merged.name)},kcal:${merged.kcal},a:${merged.a},b:${merged.b},r:${merged.r},rec:${JSON.stringify(merged.rec)}}`;
+    });
+    document.getElementById('edit-export-out').value='// Pakeisti receptai — atnaujinkite meals-data.js\n[\n'+lines.join(',\n')+'\n]';
+    const box=document.getElementById('edit-export-box');
+    box.style.display=box.style.display==='none'?'block':'none';
+  };
+}
+
+let activeTab = "pusryciai";
+
+// ---- Tabs ----
+function renderTabs(){
+  const el = document.getElementById("tabs");
+  el.innerHTML = "";
+  CATS.forEach(c=>{
+    const b=document.createElement("button");
+    b.className="tab"+(activeTab===c.key?" active":"");
+    b.innerHTML = c.label+` <span class="count">${byCat(c.key).length}</span>`;
+    b.onclick=()=>{activeTab=c.key;render();};
+    el.appendChild(b);
+  });
+  const cal=document.createElement("button");
+  cal.className="tab"+(activeTab==="cal"?" active":"");
+  cal.innerHTML="📅 Mitybos kalendorius";
+  cal.onclick=()=>{activeTab="cal";render();};
+  el.appendChild(cal);
+  const shop=document.createElement("button");
+  shop.className="tab"+(activeTab==="shop"?" active":"");
+  shop.innerHTML="🛒 Pirkinių sąrašas";
+  shop.onclick=()=>{activeTab="shop";render();};
+  el.appendChild(shop);
+}
+
+function renderRecipe(rec){
+  if(!rec) return '<span style="color:var(--muted)">—</span>';
+  const lines = rec.split('\n');
+  const ings = lines[0].split(/\s·\s|·/).map(s=>s.trim()).filter(Boolean);
+  const steps = lines.slice(1).join('\n').trim();
+  const ingHTML = '<div class="rec-section"><div class="rec-label">Ingredientai</div><div class="ing-tags">'
+    + ings.map(i=>`<span class="ing-tag">${i}</span>`).join('')
+    + '</div></div>';
+  const stepsHTML = steps
+    ? '<div class="rec-section"><div class="rec-label">Gaminimas</div><div class="rec-steps">'+steps+'</div></div>'
+    : '';
+  return ingHTML + stepsHTML;
+}
+
+// ---- Library view ----
+function renderLibrary(catKey){
+  const cat = CATS.find(c=>c.key===catKey);
+  const meals = byCat(catKey);
+  const v=document.getElementById("view");
+  const poolCount = (state.pool[catKey]||[]).length;
+  v.innerHTML = `
+    <div class="toolbar">
+      <div class="hint">Pažymėk <b>„＋ Šią savaitę"</b> patiekalus, kuriuos norėtum valgyti — jie atsiras kalendoriaus pasirinkimuose.
+      ${catKey!=='desertas'?`<b>${poolCount}</b> pažymėta šiai savaitei.`:''}</div>
+    </div>
+    <div class="grid" id="grid"></div>`;
+  const grid=v.querySelector("#grid");
+  meals.forEach(m=>{
+    const picked = (state.pool[catKey]||[]).includes(m.id);
+    const card=document.createElement("div");
+    card.className="card"+(picked?" picked":"");
+    const isEd=!!editedMeals[String(m.id)];
+    card.innerHTML=`
+      <h3>${m.name}${m.src?`<span class="src-badge">${m.src}</span>`:''}${isEd?'<span class="edit-badge">✏ keista</span>':''}</h3>
+      <div class="macros">
+        <span class="chip kcal">${m.kcal} kcal</span>
+        <span class="chip a"><span class="lbl">A</span>${m.a}</span>
+        <span class="chip b"><span class="lbl">B</span>${m.b}</span>
+        <span class="chip r"><span class="lbl">R</span>${m.r}</span>
+      </div>
+      <div class="actions">
+        <button class="btn rec-btn">Receptas ▾</button>
+        ${catKey!=='desertas'?`<button class="btn pick ${picked?'on':''}">${picked?'✓ Šią savaitę':'＋ Šią savaitę'}</button>`:''}
+        <button class="btn edit-btn" title="Redaguoti" style="margin-left:auto">✏️</button>
+      </div>
+      <div class="recipe">${renderRecipe(m.rec)}</div>`;
+    card.querySelector(".rec-btn").onclick=e=>{
+      const r=card.querySelector(".recipe"); r.classList.toggle("open");
+      e.target.textContent = r.classList.contains("open")?"Receptas ▴":"Receptas ▾";
+    };
+    const pb=card.querySelector(".pick");
+    if(pb) pb.onclick=()=>{ togglePool(catKey,m.id); renderLibrary(catKey); renderTabs(); };
+    card.querySelector(".edit-btn").onclick=()=>openEditModal(m.id,catKey);
+    grid.appendChild(card);
+  });
+}
+function togglePool(cat,id){
+  const arr=state.pool[cat]||(state.pool[cat]=[]);
+  const i=arr.indexOf(id);
+  if(i>=0) arr.splice(i,1); else arr.push(id);
+  save();
+}
+
+// ---- Calendar ----
+function optionsFor(catKey){
+  const pool = state.pool[catKey]||[];
+  const list = pool.length ? pool.map(mealById) : byCat(catKey);
+  return list;
+}
+function renderCalendar(){
+  const v=document.getElementById("view");
+  v.innerHTML = `
+    <div class="cal-tools">
+      <button class="btn primary" onclick="window.print()">🖨️ Spausdinti / PDF</button>
+      <button class="btn" id="clearBtn">🗑️ Išvalyti savaitę</button>
+      <div class="hint">Pasirinkimuose rodomi <b>šią savaitę pažymėti</b> patiekalai (jei nieko nepažymėta — visi variantai).</div>
+    </div>
+    <div class="cal-wrap"><table class="cal" id="caltable"></table></div>
+    <div class="summary" id="summary"></div>`;
+
+  // Table
+  const t=v.querySelector("#caltable");
+  let head="<thead><tr><th>Valgis</th>"+DAYS.map(d=>`<th>${d.short}</th>`).join("")+"</tr></thead>";
+  let body="<tbody>";
+  SLOTS.forEach(s=>{
+    body+=`<tr><th><span class="slot-label">${s.label}</span></th>`;
+    DAYS.forEach(d=>{
+      const cur = (state.plan[d.key]&&state.plan[d.key][s.key]);
+      const opts = optionsFor(s.key);
+      const hasCur = cur!=null && !opts.some(m=>m.id===cur);
+      let sel=`<select data-day="${d.key}" data-slot="${s.key}"><option value="">—</option>`;
+      // if current selection not in pool, still show it
+      if(hasCur){ const m=mealById(cur); sel+=`<option value="${m.id}" selected>${m.name}</option>`; }
+      sel+=opts.map(m=>`<option value="${m.id}" ${cur===m.id?"selected":""}>${m.name}</option>`).join("")+`</select>`;
+      const kcal = cur!=null?`<div class="cell-kcal">${mealById(cur).kcal} kcal</div>`:"";
+      body+=`<td class="cell">${sel}${kcal}</td>`;
+    });
+    body+="</tr>";
+  });
+  // day totals
+  body+=`<tr class="day-total"><th>Iš viso / diena</th>`;
+  DAYS.forEach(d=>{ const tot=dayTotals(d.key); body+=`<td class="day-total"><b>${tot.kcal}</b> kcal<br><span style="font-size:11px;color:var(--muted)">B ${tot.b} · A ${tot.a} · R ${tot.r}</span></td>`; });
+  body+="</tr></tbody>";
+  t.innerHTML=head+body;
+  t.querySelectorAll("select[data-day]").forEach(sel=>{
+    sel.onchange=()=>{ setCell(sel.dataset.day,sel.dataset.slot, sel.value===""?null:+sel.value); renderCalendar(); };
+  });
+
+  v.querySelector("#clearBtn").onclick=()=>{ if(confirm("Išvalyti visą savaitės kalendorių?")){ state.plan={}; save(); renderCalendar(); } };
+
+  // Summary
+  let wk=0,days=0;
+  DAYS.forEach(d=>{ const t=dayTotals(d.key); if(t.kcal>0){wk+=t.kcal;days++;} });
+  const avg = days?Math.round(wk/days):0;
+  v.querySelector("#summary").innerHTML=`
+    <div class="stat"><div class="n">${wk}</div><div class="l">Savaitės kcal (suma)</div></div>
+    <div class="stat"><div class="n">${avg}</div><div class="l">Vidurkis / diena</div></div>
+    <div class="stat"><div class="n">${days}/7</div><div class="l">Suplanuota dienų</div></div>`;
+}
+function setCell(day,slot,id){
+  if(!state.plan[day]) state.plan[day]={};
+  if(id==null) delete state.plan[day][slot]; else state.plan[day][slot]=id;
+  save();
+}
+function dayTotals(day){
+  let kcal=0,a=0,b=0,r=0;
+  SLOTS.forEach(s=>{ const id=state.plan[day]&&state.plan[day][s.key]; if(id!=null){const m=mealById(id);kcal+=m.kcal;a+=m.a;b+=m.b;r+=m.r;} });
+  return {kcal,a:Math.round(a),b:Math.round(b),r:Math.round(r)};
+}
+
+// ---- Pirkinių sąrašas ----
+let shopMode = "flat"; // "flat" = bendras, "meal" = pagal patiekalus
+function planMeals(){
+  const map=new Map(); // mealId -> [dienų trumpiniai]
+  DAYS.forEach(d=>SLOTS.forEach(s=>{
+    const id=state.plan[d.key]&&state.plan[d.key][s.key];
+    if(id!=null){ if(!map.has(id)) map.set(id,[]); map.get(id).push(d.short); }
+  }));
+  return map;
+}
+function ckey(s){ return s.toLowerCase(); }
+function toggleCheck(s){ const k=ckey(s); if(state.checked[k]) delete state.checked[k]; else state.checked[k]=1; save(); }
+
+function renderShopping(){
+  const v=document.getElementById("view");
+  const meals=planMeals();
+  if(meals.size===0){
+    v.innerHTML=`<div class="empty">Pirkinių sąrašas susidaro iš kalendoriaus.<br>Pirma sudėk patiekalus į <b>📅 Mitybos kalendorių</b>.</div>`;
+    return;
+  }
+  const catOrder={pusryciai:0,pietus:1,uzkandis:2,vakariene:3,desertas:4};
+  const entries=[...meals.entries()].sort((a,b)=>{
+    const ma=mealById(a[0]),mb=mealById(b[0]);
+    return (catOrder[ma.cat]-catOrder[mb.cat])||ma.name.localeCompare(mb.name);
+  });
+  v.innerHTML=`
+    <div class="cal-tools">
+      <div class="modes">
+        <button class="btn ${shopMode==='flat'?'on':''}" id="mFlat">📋 Bendras sąrašas</button>
+        <button class="btn ${shopMode==='meal'?'on':''}" id="mMeal">🍽️ Pagal patiekalus</button>
+      </div>
+      <button class="btn primary" onclick="window.print()">🖨️ Spausdinti / PDF</button>
+      <button class="btn" id="clrChecks">↺ Nuimti varneles</button>
+      <div class="hint">Prieskoniai, druska, pipirai neįtraukti (visada turimi). Pažymėk ✓ ką jau turi/įmetei.</div>
+    </div>
+    <div id="shopBody"></div>`;
+  v.querySelector("#mFlat").onclick=()=>{shopMode="flat";renderShopping();};
+  v.querySelector("#mMeal").onclick=()=>{shopMode="meal";renderShopping();};
+  v.querySelector("#clrChecks").onclick=()=>{state.checked={};save();renderShopping();};
+  const body=v.querySelector("#shopBody");
+
+  if(shopMode==="meal"){
+    entries.forEach(([id,days])=>{
+      const m=mealById(id), ings=ingredientsOf(m);
+      const g=document.createElement("div"); g.className="shop-group";
+      const cnt=days.length>1?` ×${days.length}`:"";
+      g.innerHTML=`<h3>${m.name}${cnt}</h3><span class="tag">${days.join(", ")}</span>`;
+      ings.forEach(ing=>g.appendChild(shopItem(ing)));
+      if(ings.length===0) g.insertAdjacentHTML("beforeend",`<div class="shop-item" style="color:var(--muted)">—</div>`);
+      body.appendChild(g);
+    });
+  } else {
+    // bendras: kiekvienas kalendoriaus langelis → ingredientai → sumuojami
+    const agg=new Map(); // "unit|name" -> {tot, hasQty, unit, name, meals}
+    let slotCount=0;
+    DAYS.forEach(d=>SLOTS.forEach(s=>{
+      const id=state.plan[d.key]?.[s.key];
+      if(id==null) return;
+      slotCount++;
+      const m=mealById(id);
+      // ingredientai, kuriems vienetai nesvarbūs pirkinių sąraše (sumuojamas kiekis patiekalų)
+      const NO_UNIT=new Set(['ghee / aliejus','avokado','salotų lapai','sezamo sėklos','duona','uogos','paprika','riešutų sviestas','pienas','augalinis pienas','kokosų pienas','pomidorų padažas','jogurtas','kreminis sūris','mocarela','pievagrybiai','lieso majonezo']);
+      ingredientsOf(m).forEach(ing=>{
+        const parsed=parseIng(ing);
+        // Sudėtiniai ingredientai "A su B" (be skliaustelių) → du atskiri
+        // Antrosios dalys iš naujo parsinama, kad ištrauktų kiekį ("20g kreminio sūrio")
+        let subparts;
+        if(/ su /.test(parsed.name)&&!parsed.name.includes('(')){
+          const halves=parsed.name.split(/ su /);
+          subparts=[{...parsed,name:halves[0].trim()},...halves.slice(1).map(h=>parseIng(h.trim()))];
+        } else { subparts=[parsed]; }
+        subparts.forEach(({qty,unit,name})=>{
+          const normName=normalizeName(name);
+          const noUnit=NO_UNIT.has(normName);
+          const effUnit=noUnit?'':unit;
+          const effQty=noUnit?null:qty;
+          const key=(effUnit+'|'+normName).toLowerCase();
+          if(!agg.has(key)) agg.set(key,{tot:0,hasQty:false,unit:effUnit,name:normName,meals:new Set()});
+          const e=agg.get(key);
+          e.tot+=(effQty!==null?effQty:1); e.hasQty=true;
+          e.meals.add(m.name);
+        });
+      });
+    }));
+    const list=[...agg.values()].sort((a,b)=>a.name.localeCompare(b.name,'lt'));
+    const g=document.createElement("div"); g.className="shop-group";
+    g.innerHTML=`<h3>Pirkinių sąrašas</h3><span class="tag">${list.length} produktų · iš ${slotCount} patiekalų</span>`;
+    list.forEach(({tot,hasQty,unit,name,meals})=>{
+      const unitStr=unit?(unit==='v.š.'||unit==='a.š.'?` ${unit} `:`${unit} `):(hasQty?' ':'');
+      const label=hasQty?`${fmtQty(tot)}${unitStr}${name}`:(name+(tot>1?` ×${tot}`:''));
+      const src=meals.size>1?`${meals.size} patiek.`:'';
+      g.appendChild(shopItem(label,src));
+    });
+    body.appendChild(g);
+
+    // Papildomi produktai
+    if(!state.extras) state.extras=[];
+    const eg=document.createElement("div"); eg.className="shop-group";
+    eg.innerHTML=`<h3>Papildomi produktai</h3><span class="tag">Pridėk ką reikia nusipirkti papildomai</span>`;
+    function renderExtras(){
+      eg.querySelectorAll(".shop-item").forEach(el=>el.remove());
+      state.extras.forEach((item,i)=>{
+        const row=shopItem(item,'');
+        const del=document.createElement("button"); del.className="del"; del.textContent="×";
+        del.onclick=(e)=>{ e.preventDefault(); state.extras.splice(i,1); save(); renderExtras(); };
+        row.appendChild(del);
+        eg.insertBefore(row, addRow);
+      });
+    }
+    const addRow=document.createElement("div"); addRow.className="extras-add";
+    const inp=document.createElement("input"); inp.type="text"; inp.placeholder="pvz. obuoliai, medus...";
+    const addBtn=document.createElement("button"); addBtn.className="btn"; addBtn.textContent="+ Pridėti";
+    function addExtra(){ const v=inp.value.trim(); if(!v) return; state.extras.push(v); save(); inp.value=""; renderExtras(); }
+    addBtn.onclick=addExtra;
+    inp.onkeydown=(e)=>{ if(e.key==="Enter") addExtra(); };
+    addRow.append(inp, addBtn);
+    eg.appendChild(addRow);
+    renderExtras();
+    body.appendChild(eg);
+  }
+}
+function shopItem(ing, src){
+  const row=document.createElement("label");
+  const on=!!state.checked[ckey(ing)];
+  row.className="shop-item"+(on?" checked":"");
+  row.innerHTML=`<input type="checkbox" ${on?"checked":""}><label>${ing}</label>${src?`<span class="src">${src}</span>`:""}`;
+  row.querySelector("input").onchange=()=>{ toggleCheck(ing); row.classList.toggle("checked"); };
+  return row;
+}
+
+function render(){
+  renderTabs();
+  if(activeTab==="cal") renderCalendar();
+  else if(activeTab==="shop") renderShopping();
+  else renderLibrary(activeTab);
+}
+loadEdits();
+initEditModal();
+render();
+</script>
+</body>
+</html>
