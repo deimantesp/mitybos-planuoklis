@@ -104,6 +104,14 @@
   .extras-add input[type=text]{flex:1;font-family:inherit;font-size:14px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
   .extras-add input[type=text]:focus{outline:2px solid var(--moss);border-color:transparent}
 
+  /* Kategorijos paieška */
+  .cat-search{width:100%;font-family:inherit;font-size:14px;padding:9px 12px 9px 34px;border:1px solid var(--line);border-radius:10px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%237c8470' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cline x1='11' y1='11' x2='15' y2='15'/%3E%3C/svg%3E") 10px center no-repeat;color:var(--ink);appearance:none;box-sizing:border-box;margin-bottom:14px}
+  .cat-search:focus{outline:2px solid var(--moss);border-color:transparent}
+  .cat-search::placeholder{color:var(--muted)}
+  .no-results{color:var(--muted);font-size:14px;padding:30px 0;text-align:center;display:none}
+  .no-results.visible{display:block}
+  .days-badge{display:inline-block;background:var(--moss);color:#fff;font-size:10px;font-weight:700;border-radius:4px;padding:1px 5px;margin-right:4px;vertical-align:middle}
+
   /* Receptų redagavimo modalas */
   .edit-overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:200;display:none;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto}
   .edit-dialog{background:var(--card);border-radius:var(--radius);padding:22px;width:100%;max-width:540px;margin:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)}
@@ -157,6 +165,10 @@
       <div class="edit-field"><label>A (angliavandeniai)</label><input type="number" id="edit-a" min="0" step="0.1"></div>
       <div class="edit-field"><label>B (baltymai)</label><input type="number" id="edit-b" min="0" step="0.1"></div>
       <div class="edit-field"><label>R (riebalai)</label><input type="number" id="edit-r" min="0" step="0.1"></div>
+    </div>
+    <div class="edit-field" style="margin-top:6px;max-width:140px">
+      <label>Dienų skaičius <span style="font-weight:400;text-transform:none;letter-spacing:0">(1 = viena diena)</span></label>
+      <input type="number" id="edit-days" min="1" max="7" value="1">
     </div>
     <div class="edit-field" style="margin-top:6px">
       <label>Ingredientai <span style="font-weight:400;text-transform:none;letter-spacing:0">(vienas per eilutę)</span></label>
@@ -323,6 +335,7 @@ function openEditModal(id,catKey){
   const stepsText=recLines.slice(1).join('\n').trim();
   document.getElementById('edit-ings').value=ingsLine.split(/\s·\s|·/).map(s=>s.trim()).filter(Boolean).join('\n');
   document.getElementById('edit-steps').value=stepsText;
+  document.getElementById('edit-days').value=m.days||1;
   document.getElementById('edit-revert').style.display=editedMeals[String(id)]?'':'none';
   document.getElementById('edit-export-box').style.display='none';
   document.getElementById('edit-overlay').style.display='flex';
@@ -337,6 +350,7 @@ function initEditModal(){
       a:+document.getElementById('edit-a').value,
       b:+document.getElementById('edit-b').value,
       r:+document.getElementById('edit-r').value,
+      days:Math.max(1,+document.getElementById('edit-days').value||1),
       rec:(()=>{
         const ings=document.getElementById('edit-ings').value.split('\n').map(s=>s.trim()).filter(Boolean).join(' · ');
         const steps=document.getElementById('edit-steps').value.trim();
@@ -362,7 +376,7 @@ function initEditModal(){
     const lines=ids.map(id=>{
       const orig=window.MEALS[+id], d=editedMeals[id];
       const merged={...orig,...d};
-      return `  {cat:"${merged.cat}",src:"${merged.src||''}",name:${JSON.stringify(merged.name)},kcal:${merged.kcal},a:${merged.a},b:${merged.b},r:${merged.r},rec:${JSON.stringify(merged.rec)}}`;
+      return `  {cat:"${merged.cat}",src:"${merged.src||''}",name:${JSON.stringify(merged.name)},kcal:${merged.kcal},a:${merged.a},b:${merged.b},r:${merged.r}${merged.days&&merged.days>1?`,days:${merged.days}`:''},rec:${JSON.stringify(merged.rec)}}`;
     });
     document.getElementById('edit-export-out').value='// Pakeisti receptai — atnaujinkite meals-data.js\n[\n'+lines.join(',\n')+'\n]';
     const box=document.getElementById('edit-export-box');
@@ -371,6 +385,14 @@ function initEditModal(){
 }
 
 let activeTab = "pusryciai";
+let catSearch = {};
+
+function matchesSearch(m, q) {
+  if (!q) return true;
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const hay = (m.name + ' ' + (m.rec ? m.rec.split('\n')[0] : '')).toLowerCase();
+  return words.every(w => hay.includes(w));
+}
 
 // ---- Tabs ----
 function renderTabs(){
@@ -420,12 +442,15 @@ function renderLibrary(catKey){
       <div class="hint">Pažymėk <b>„＋ Šią savaitę"</b> patiekalus, kuriuos norėtum valgyti — jie atsiras kalendoriaus pasirinkimuose.
       ${catKey!=='desertas'?`<b>${poolCount}</b> pažymėta šiai savaitei.`:''}</div>
     </div>
-    <div class="grid" id="grid"></div>`;
+    <input type="search" class="cat-search" id="cat-search" placeholder="Ieškoti pagal pavadinimą ar ingredientą…" value="${(catSearch[catKey]||'').replace(/"/g,'&quot;')}">
+    <div class="grid" id="grid"></div>
+    <div class="no-results" id="no-results">Nieko nerasta. Pabandyk kitą paieškos žodį.</div>`;
   const grid=v.querySelector("#grid");
   meals.forEach(m=>{
     const picked = (state.pool[catKey]||[]).includes(m.id);
     const card=document.createElement("div");
     card.className="card"+(picked?" picked":"");
+    card.dataset.id = m.id;
     const isEd=!!editedMeals[String(m.id)];
     card.innerHTML=`
       <h3>${m.name}${m.src?`<span class="src-badge">${m.src}</span>`:''}${isEd?'<span class="edit-badge">✏ keista</span>':''}</h3>
@@ -450,6 +475,22 @@ function renderLibrary(catKey){
     card.querySelector(".edit-btn").onclick=()=>openEditModal(m.id,catKey);
     grid.appendChild(card);
   });
+
+  const searchEl = v.querySelector('#cat-search');
+  const noResults = v.querySelector('#no-results');
+  function applyFilter(q){
+    catSearch[catKey] = q;
+    let visible = 0;
+    grid.querySelectorAll('.card').forEach(card=>{
+      const m = mealById(+card.dataset.id);
+      const show = matchesSearch(m, q);
+      card.style.display = show ? '' : 'none';
+      if(show) visible++;
+    });
+    noResults.classList.toggle('visible', visible === 0 && q.length > 0);
+  }
+  searchEl.oninput = e => applyFilter(e.target.value.trim());
+  applyFilter(catSearch[catKey] || '');
 }
 function togglePool(cat,id){
   const arr=state.pool[cat]||(state.pool[cat]=[]);
@@ -489,7 +530,9 @@ function renderCalendar(){
       // if current selection not in pool, still show it
       if(hasCur){ const m=mealById(cur); sel+=`<option value="${m.id}" selected>${m.name}</option>`; }
       sel+=opts.map(m=>`<option value="${m.id}" ${cur===m.id?"selected":""}>${m.name}</option>`).join("")+`</select>`;
-      const kcal = cur!=null?`<div class="cell-kcal">${mealById(cur).kcal} kcal</div>`:"";
+      const cm = cur!=null?mealById(cur):null;
+      const spanBadge = cm&&(cm.days||1)>1?`<span class="days-badge">${cm.days}d</span>`:'';
+      const kcal = cm?`<div class="cell-kcal">${spanBadge}${cm.kcal} kcal</div>`:"";
       body+=`<td class="cell">${sel}${kcal}</td>`;
     });
     body+="</tr>";
@@ -517,6 +560,16 @@ function renderCalendar(){
 function setCell(day,slot,id){
   if(!state.plan[day]) state.plan[day]={};
   if(id==null) delete state.plan[day][slot]; else state.plan[day][slot]=id;
+  if(id!=null){
+    const span=(mealById(id).days||1);
+    if(span>1){
+      const dayIdx=DAYS.findIndex(d=>d.key===day);
+      for(let i=1;i<span;i++){
+        const nd=DAYS[dayIdx+i];
+        if(nd){if(!state.plan[nd.key])state.plan[nd.key]={};state.plan[nd.key][slot]=id;}
+      }
+    }
+  }
   save();
 }
 function dayTotals(day){
@@ -586,7 +639,7 @@ function renderShopping(){
       slotCount++;
       const m=mealById(id);
       // ingredientai, kuriems vienetai nesvarbūs pirkinių sąraše (sumuojamas kiekis patiekalų)
-      const NO_UNIT=new Set(['ghee / aliejus','avokado','salotų lapai','sezamo sėklos','duona','uogos','paprika','riešutų sviestas','pienas','augalinis pienas','kokosų pienas','pomidorų padažas','jogurtas','kreminis sūris','mocarela','pievagrybiai','lieso majonezo']);
+      const NO_UNIT=new Set(['ghee / aliejus','avokado','salotų lapai','sezamo sėklos','duona','uogos','paprika','riešutų sviestas','pienas','augalinis pienas','kokosų pienas','pomidorų padažas','jogurtas','kreminis sūris','pievagrybiai','lieso majonezo']);
       ingredientsOf(m).forEach(ing=>{
         const parsed=parseIng(ing);
         // Sudėtiniai ingredientai "A su B" (be skliaustelių) → du atskiri
