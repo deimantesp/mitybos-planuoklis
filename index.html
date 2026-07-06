@@ -220,6 +220,16 @@ const MEALS = window.MEALS.map((m,i)=>({...m,id:i}));
 const byCat = k => MEALS.filter(m=>m.cat===k);
 const mealById = id => MEALS[id];
 
+// Ekranuoja vartotojo redaguojamus tekstus prieš įterpiant į innerHTML.
+// Receptų pavadinimai/ingredientai laisvai redaguojami ir saugomi localStorage;
+// be šito „<" recepte sugadintų DOM, o eksportuotą/importuotą receptų rinkinį
+// paverstų injekcijos keliu.
+function escapeHtml(s){
+  return String(s==null?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 // ---- Ingredientų ištraukimas pirkinių sąrašui ----
 // Prieskonius/druską ir pan. praleidžiam (mitybos plane jie laikomi "visada turimais")
 const STAPLE_RE=/(prieskon|druska|pipir|cinamon|vanil|saldikl|kepimo miltel|žolel|persilad|citrinpipir|žiupsn|provanso|pagal skonį|skonio laš|^vanduo|^actas)/i;
@@ -423,10 +433,10 @@ function renderRecipe(rec){
   const ings = lines[0].split(/\s·\s|·/).map(s=>s.trim()).filter(Boolean);
   const steps = lines.slice(1).join('\n').trim();
   const ingHTML = '<div class="rec-section"><div class="rec-label">Ingredientai</div><div class="ing-tags">'
-    + ings.map(i=>`<span class="ing-tag">${i}</span>`).join('')
+    + ings.map(i=>`<span class="ing-tag">${escapeHtml(i)}</span>`).join('')
     + '</div></div>';
   const stepsHTML = steps
-    ? '<div class="rec-section"><div class="rec-label">Gaminimas</div><div class="rec-steps">'+steps+'</div></div>'
+    ? '<div class="rec-section"><div class="rec-label">Gaminimas</div><div class="rec-steps">'+escapeHtml(steps)+'</div></div>'
     : '';
   return ingHTML + stepsHTML;
 }
@@ -453,7 +463,7 @@ function renderLibrary(catKey){
     card.dataset.id = m.id;
     const isEd=!!editedMeals[String(m.id)];
     card.innerHTML=`
-      <h3>${m.name}${m.src?`<span class="src-badge">${m.src}</span>`:''}${isEd?'<span class="edit-badge">✏ keista</span>':''}</h3>
+      <h3>${escapeHtml(m.name)}${m.src?`<span class="src-badge">${escapeHtml(m.src)}</span>`:''}${isEd?'<span class="edit-badge">✏ keista</span>':''}</h3>
       <div class="macros">
         <span class="chip kcal">${m.kcal} kcal</span>
         <span class="chip a"><span class="lbl">A</span>${m.a}</span>
@@ -528,8 +538,8 @@ function renderCalendar(){
       const hasCur = cur!=null && !opts.some(m=>m.id===cur);
       let sel=`<select data-day="${d.key}" data-slot="${s.key}"><option value="">—</option>`;
       // if current selection not in pool, still show it
-      if(hasCur){ const m=mealById(cur); sel+=`<option value="${m.id}" selected>${m.name}</option>`; }
-      sel+=opts.map(m=>`<option value="${m.id}" ${cur===m.id?"selected":""}>${m.name}</option>`).join("")+`</select>`;
+      if(hasCur){ const m=mealById(cur); sel+=`<option value="${m.id}" selected>${escapeHtml(m.name)}</option>`; }
+      sel+=opts.map(m=>`<option value="${m.id}" ${cur===m.id?"selected":""}>${escapeHtml(m.name)}</option>`).join("")+`</select>`;
       const cm = cur!=null?mealById(cur):null;
       const spanBadge = cm&&(cm.days||1)>1?`<span class="days-badge">${cm.days}d</span>`:'';
       const kcal = cm?`<div class="cell-kcal">${spanBadge}${cm.kcal} kcal</div>`:"";
@@ -624,7 +634,7 @@ function renderShopping(){
       const m=mealById(id), ings=ingredientsOf(m);
       const g=document.createElement("div"); g.className="shop-group";
       const cnt=days.length>1?` ×${days.length}`:"";
-      g.innerHTML=`<h3>${m.name}${cnt}</h3><span class="tag">${days.join(", ")}</span>`;
+      g.innerHTML=`<h3>${escapeHtml(m.name)}${cnt}</h3><span class="tag">${escapeHtml(days.join(", "))}</span>`;
       ings.forEach(ing=>g.appendChild(shopItem(ing)));
       if(ings.length===0) g.insertAdjacentHTML("beforeend",`<div class="shop-item" style="color:var(--muted)">—</div>`);
       body.appendChild(g);
@@ -703,7 +713,7 @@ function shopItem(ing, src){
   const row=document.createElement("label");
   const on=!!state.checked[ckey(ing)];
   row.className="shop-item"+(on?" checked":"");
-  row.innerHTML=`<input type="checkbox" ${on?"checked":""}><label>${ing}</label>${src?`<span class="src">${src}</span>`:""}`;
+  row.innerHTML=`<input type="checkbox" ${on?"checked":""}><label>${escapeHtml(ing)}</label>${src?`<span class="src">${escapeHtml(src)}</span>`:""}`;
   row.querySelector("input").onchange=()=>{ toggleCheck(ing); row.classList.toggle("checked"); };
   return row;
 }
