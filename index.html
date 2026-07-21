@@ -16,15 +16,15 @@
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
   header{padding:22px 20px 14px;max-width:1100px;margin:0 auto}
-  .header-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
   h1{margin:0;font-size:25px;letter-spacing:-.02em}
   h1 .leaf{color:var(--moss)}
   .sub{color:var(--muted);font-size:14px;margin-top:3px}
-  .servings-ctrl{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:7px 12px;white-space:nowrap}
-  .srv-label{font-size:13px;font-weight:600;color:var(--muted)}
-  .srv-btn{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:7px;width:28px;height:28px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:.15s}
-  .srv-btn:hover{border-color:var(--moss-2);background:var(--moss-soft)}
-  .srv-num{font-size:18px;font-weight:800;min-width:24px;text-align:center;color:var(--moss)}
+  .shop-group-hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .meal-srv{display:flex;align-items:center;gap:4px;flex-shrink:0;margin-top:2px}
+  .meal-srv-label{font-size:12px;color:var(--muted)}
+  .meal-srv-btn{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px;width:24px;height:24px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:.15s;flex-shrink:0}
+  .meal-srv-btn:hover{border-color:var(--moss-2);background:var(--moss-soft)}
+  .meal-srv-num{font-size:14px;font-weight:800;min-width:18px;text-align:center;color:var(--moss)}
 
   nav{position:sticky;top:0;z-index:20;background:rgba(244,241,234,.92);backdrop-filter:blur(8px);
     border-bottom:1px solid var(--line)}
@@ -148,18 +148,8 @@
 </head>
 <body>
 <header>
-  <div class="header-row">
-    <div>
-      <h1><span class="leaf">🌿</span> Mitybos planuoklis</h1>
-      <div class="sub">Pasirink patiekalus iš bibliotekos ir sudėk savaitės valgiaraštį. Receptai iš „Laikas keistis" programų.</div>
-    </div>
-    <div class="servings-ctrl">
-      <span class="srv-label">👥 Žmonių:</span>
-      <button class="srv-btn" onclick="changeServings(-1)">−</button>
-      <span class="srv-num" id="srv-num">1</span>
-      <button class="srv-btn" onclick="changeServings(1)">+</button>
-    </div>
-  </div>
+  <h1><span class="leaf">🌿</span> Mitybos planuoklis</h1>
+  <div class="sub">Pasirink patiekalus iš bibliotekos ir sudėk savaitės valgiaraštį. Receptai iš „Laikas keistis" programų.</div>
 </header>
 
 <nav><div class="tabs" id="tabs"></div></nav>
@@ -324,9 +314,10 @@ function normalizeName(name){
 // ---- State (localStorage) ----
 const LS = "mitybos-planas-v1";
 let state = load();
+if(!state.shopServings) state.shopServings = {};
 function load(){
   try{const s=JSON.parse(localStorage.getItem(LS)); if(s&&s.plan) return s;}catch(e){}
-  return {plan:{}, pool:{pusryciai:[],pietus:[],uzkandis:[],vakariene:[],desertas:[]}, checked:{}, extras:[]};
+  return {plan:{}, pool:{pusryciai:[],pietus:[],uzkandis:[],vakariene:[],desertas:[]}, checked:{}, extras:[], shopServings:{}};
 }
 function save(){ localStorage.setItem(LS, JSON.stringify(state)); }
 
@@ -413,19 +404,11 @@ function initEditModal(){
 let activeTab = "pusryciai";
 let catSearch = {};
 
-// ---- Žmonių skaičius ----
-let servings = +localStorage.getItem("mitybos-servings") || 1;
-function changeServings(d){
-  servings = Math.max(1, Math.min(20, servings + d));
-  localStorage.setItem("mitybos-servings", servings);
-  document.getElementById("srv-num").textContent = servings;
-  render();
-}
-function scaleIng(ing){
-  if(servings <= 1) return ing;
+function scaleIng(ing, n){
+  if(!n || n <= 1) return ing;
   const {qty, unit, name} = parseIng(ing);
   if(qty === null) return ing;
-  const scaled = Math.round(qty * servings * 10) / 10;
+  const scaled = Math.round(qty * n * 10) / 10;
   return fmtQty(scaled) + (unit ? unit : '') + (name ? ' ' + name : '');
 }
 
@@ -464,9 +447,8 @@ function renderRecipe(rec){
   const lines = rec.split('\n');
   const ings = lines[0].split(/\s·\s|·/).map(s=>s.trim()).filter(Boolean);
   const steps = lines.slice(1).join('\n').trim();
-  const srvBadge = servings>1?`<span style="font-size:10px;font-weight:600;background:var(--moss);color:#fff;border-radius:4px;padding:1px 6px;margin-left:6px">×${servings}</span>`:'';
-  const ingHTML = `<div class="rec-section"><div class="rec-label">Ingredientai${srvBadge}</div><div class="ing-tags">`
-    + ings.map(i=>`<span class="ing-tag">${escapeHtml(scaleIng(i))}</span>`).join('')
+  const ingHTML = `<div class="rec-section"><div class="rec-label">Ingredientai</div><div class="ing-tags">`
+    + ings.map(i=>`<span class="ing-tag">${escapeHtml(i)}</span>`).join('')
     + '</div></div>';
   const stepsHTML = steps
     ? '<div class="rec-section"><div class="rec-label">Gaminimas</div><div class="rec-steps">'+escapeHtml(steps)+'</div></div>'
@@ -665,10 +647,17 @@ function renderShopping(){
   if(shopMode==="meal"){
     entries.forEach(([id,days])=>{
       const m=mealById(id), ings=ingredientsOf(m);
+      const srv=state.shopServings[id]||1;
       const g=document.createElement("div"); g.className="shop-group";
       const cnt=days.length>1?` ×${days.length}`:"";
-      g.innerHTML=`<h3>${escapeHtml(m.name)}${cnt}</h3><span class="tag">${escapeHtml(days.join(", "))}</span>`;
-      ings.forEach(ing=>g.appendChild(shopItem(ing)));
+      g.innerHTML=`<div class="shop-group-hdr"><div><h3>${escapeHtml(m.name)}${cnt}</h3><span class="tag">${escapeHtml(days.join(", "))}</span></div><div class="meal-srv"><span class="meal-srv-label">👥</span><button class="meal-srv-btn" data-d="-1">−</button><span class="meal-srv-num">${srv}</span><button class="meal-srv-btn" data-d="1">+</button></div></div>`;
+      g.querySelectorAll(".meal-srv-btn").forEach(btn=>{
+        btn.onclick=()=>{
+          state.shopServings[id]=Math.max(1,Math.min(20,(state.shopServings[id]||1)+(+btn.dataset.d)));
+          save(); renderShopping();
+        };
+      });
+      ings.forEach(ing=>g.appendChild(shopItem(scaleIng(ing,srv))));
       if(ings.length===0) g.insertAdjacentHTML("beforeend",`<div class="shop-item" style="color:var(--muted)">—</div>`);
       body.appendChild(g);
     });
@@ -681,6 +670,7 @@ function renderShopping(){
       if(id==null) return;
       slotCount++;
       const m=mealById(id);
+      const srv=state.shopServings[id]||1;
       // ingredientai, kuriems vienetai nesvarbūs pirkinių sąraše (sumuojamas kiekis patiekalų)
       const NO_UNIT=new Set(['ghee / aliejus','avokado','salotų lapai','sezamo sėklos','duona','uogos','paprika','riešutų sviestas','pienas','augalinis pienas','kokosų pienas','pomidorų padažas','jogurtas','kreminis sūris','pievagrybiai','lieso majonezo']);
       ingredientsOf(m).forEach(ing=>{
@@ -700,7 +690,7 @@ function renderShopping(){
           const key=(effUnit+'|'+normName).toLowerCase();
           if(!agg.has(key)) agg.set(key,{tot:0,hasQty:false,unit:effUnit,name:normName,meals:new Set()});
           const e=agg.get(key);
-          e.tot+=(effQty!==null?effQty:1); e.hasQty=true;
+          e.tot+=(effQty!==null?effQty*srv:srv); e.hasQty=true;
           e.meals.add(m.name);
         });
       });
@@ -709,9 +699,9 @@ function renderShopping(){
     const g=document.createElement("div"); g.className="shop-group";
     g.innerHTML=`<h3>Pirkinių sąrašas</h3><span class="tag">${list.length} produktų · iš ${slotCount} patiekalų</span>`;
     list.forEach(({tot,hasQty,unit,name,meals})=>{
-      const scaledTot = Math.round(tot * servings * 10) / 10;
+      const disp = Math.round(tot * 10) / 10;
       const unitStr=unit?(unit==='v.š.'||unit==='a.š.'?` ${unit} `:`${unit} `):(hasQty?' ':'');
-      const label=hasQty?`${fmtQty(scaledTot)}${unitStr}${name}`:(name+(scaledTot>1?` ×${Math.round(scaledTot)}`:''));
+      const label=hasQty?`${fmtQty(disp)}${unitStr}${name}`:(name+(disp>1?` ×${Math.round(disp)}`:''));
       const src=meals.size>1?`${meals.size} patiek.`:'';
       g.appendChild(shopItem(label,src));
     });
@@ -760,7 +750,6 @@ function render(){
 }
 loadEdits();
 initEditModal();
-document.getElementById("srv-num").textContent = servings;
 render();
 </script>
 </body>
