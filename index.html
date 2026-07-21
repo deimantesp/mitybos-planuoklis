@@ -16,9 +16,15 @@
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
   header{padding:22px 20px 14px;max-width:1100px;margin:0 auto}
+  .header-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
   h1{margin:0;font-size:25px;letter-spacing:-.02em}
   h1 .leaf{color:var(--moss)}
   .sub{color:var(--muted);font-size:14px;margin-top:3px}
+  .servings-ctrl{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:7px 12px;white-space:nowrap}
+  .srv-label{font-size:13px;font-weight:600;color:var(--muted)}
+  .srv-btn{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:7px;width:28px;height:28px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:.15s}
+  .srv-btn:hover{border-color:var(--moss-2);background:var(--moss-soft)}
+  .srv-num{font-size:18px;font-weight:800;min-width:24px;text-align:center;color:var(--moss)}
 
   nav{position:sticky;top:0;z-index:20;background:rgba(244,241,234,.92);backdrop-filter:blur(8px);
     border-bottom:1px solid var(--line)}
@@ -142,8 +148,18 @@
 </head>
 <body>
 <header>
-  <h1><span class="leaf">🌿</span> Mitybos planuoklis</h1>
-  <div class="sub">Pasirink patiekalus iš bibliotekos ir sudėk savaitės valgiaraštį. Receptai iš „Laikas keistis" programų.</div>
+  <div class="header-row">
+    <div>
+      <h1><span class="leaf">🌿</span> Mitybos planuoklis</h1>
+      <div class="sub">Pasirink patiekalus iš bibliotekos ir sudėk savaitės valgiaraštį. Receptai iš „Laikas keistis" programų.</div>
+    </div>
+    <div class="servings-ctrl">
+      <span class="srv-label">👥 Žmonių:</span>
+      <button class="srv-btn" onclick="changeServings(-1)">−</button>
+      <span class="srv-num" id="srv-num">1</span>
+      <button class="srv-btn" onclick="changeServings(1)">+</button>
+    </div>
+  </div>
 </header>
 
 <nav><div class="tabs" id="tabs"></div></nav>
@@ -397,6 +413,22 @@ function initEditModal(){
 let activeTab = "pusryciai";
 let catSearch = {};
 
+// ---- Žmonių skaičius ----
+let servings = +localStorage.getItem("mitybos-servings") || 1;
+function changeServings(d){
+  servings = Math.max(1, Math.min(20, servings + d));
+  localStorage.setItem("mitybos-servings", servings);
+  document.getElementById("srv-num").textContent = servings;
+  render();
+}
+function scaleIng(ing){
+  if(servings <= 1) return ing;
+  const {qty, unit, name} = parseIng(ing);
+  if(qty === null) return ing;
+  const scaled = Math.round(qty * servings * 10) / 10;
+  return fmtQty(scaled) + (unit ? unit : '') + (name ? ' ' + name : '');
+}
+
 function matchesSearch(m, q) {
   if (!q) return true;
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -432,8 +464,9 @@ function renderRecipe(rec){
   const lines = rec.split('\n');
   const ings = lines[0].split(/\s·\s|·/).map(s=>s.trim()).filter(Boolean);
   const steps = lines.slice(1).join('\n').trim();
-  const ingHTML = '<div class="rec-section"><div class="rec-label">Ingredientai</div><div class="ing-tags">'
-    + ings.map(i=>`<span class="ing-tag">${escapeHtml(i)}</span>`).join('')
+  const srvBadge = servings>1?`<span style="font-size:10px;font-weight:600;background:var(--moss);color:#fff;border-radius:4px;padding:1px 6px;margin-left:6px">×${servings}</span>`:'';
+  const ingHTML = `<div class="rec-section"><div class="rec-label">Ingredientai${srvBadge}</div><div class="ing-tags">`
+    + ings.map(i=>`<span class="ing-tag">${escapeHtml(scaleIng(i))}</span>`).join('')
     + '</div></div>';
   const stepsHTML = steps
     ? '<div class="rec-section"><div class="rec-label">Gaminimas</div><div class="rec-steps">'+escapeHtml(steps)+'</div></div>'
@@ -676,8 +709,9 @@ function renderShopping(){
     const g=document.createElement("div"); g.className="shop-group";
     g.innerHTML=`<h3>Pirkinių sąrašas</h3><span class="tag">${list.length} produktų · iš ${slotCount} patiekalų</span>`;
     list.forEach(({tot,hasQty,unit,name,meals})=>{
+      const scaledTot = Math.round(tot * servings * 10) / 10;
       const unitStr=unit?(unit==='v.š.'||unit==='a.š.'?` ${unit} `:`${unit} `):(hasQty?' ':'');
-      const label=hasQty?`${fmtQty(tot)}${unitStr}${name}`:(name+(tot>1?` ×${tot}`:''));
+      const label=hasQty?`${fmtQty(scaledTot)}${unitStr}${name}`:(name+(scaledTot>1?` ×${Math.round(scaledTot)}`:''));
       const src=meals.size>1?`${meals.size} patiek.`:'';
       g.appendChild(shopItem(label,src));
     });
@@ -726,6 +760,7 @@ function render(){
 }
 loadEdits();
 initEditModal();
+document.getElementById("srv-num").textContent = servings;
 render();
 </script>
 </body>
