@@ -138,10 +138,31 @@
   .btn-danger:hover{background:#fdf0f0}
   .hint-sm{font-size:12px;color:var(--muted);margin-top:5px}
 
+  .print-only{display:none}
   @media print{
-    nav,.toolbar,.cal-tools,.actions,.tab{display:none!important}
-    body{background:#fff}
-    .summary{break-inside:avoid}
+    @page{size:A4;margin:1.5cm 1.2cm}
+    nav,.cal-tools,header .sub,.summary,.cal-wrap,button{display:none!important}
+    body{background:#fff;color:#111;font-size:12px}
+    header{padding:4px 0 10px;border-bottom:2px solid #222;margin-bottom:16px}
+    h1{font-size:19px;color:#000}
+    h1 .leaf{display:none}
+    .print-only{display:block!important}
+    /* Spausdinama kalendoriaus lentelė */
+    .print-cal{width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:18px;table-layout:fixed}
+    .print-cal th,.print-cal td{border:1px solid #bbb;padding:4px 3px;vertical-align:top;word-break:break-word}
+    .print-cal thead th{background:#eee;font-weight:700;text-align:center;font-size:9px}
+    .print-cal thead th:first-child{width:68px}
+    .print-cal tbody th{font-weight:600;white-space:nowrap;background:#f5f5f5;font-size:9px;text-align:left}
+    .print-cal .kcal-row th,.print-cal .kcal-row td{font-weight:700;text-align:center;background:#eee;font-size:9px}
+    .print-cal .empty-cell{color:#bbb;text-align:center}
+    /* Receptai po kalendorium */
+    .print-recipes{page-break-before:auto}
+    .print-recipes h2{font-size:13px;font-weight:700;border-bottom:1.5px solid #222;padding-bottom:4px;margin:0 0 12px;page-break-after:avoid}
+    .recipes-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
+    .recipe-card{border:1px solid #ccc;border-radius:3px;padding:6px 7px;page-break-inside:avoid;break-inside:avoid}
+    .recipe-card-name{font-weight:700;font-size:9.5px;margin-bottom:1px}
+    .recipe-card-meta{font-size:8px;color:#555;margin-bottom:3px}
+    .recipe-card-ings{font-size:8.5px;color:#222;line-height:1.4}
   }
   @media(max-width:560px){ h1{font-size:21px} .grid{grid-template-columns:1fr} }
 </style>
@@ -581,6 +602,49 @@ function renderCalendar(){
     <div class="stat"><div class="n">${wk}</div><div class="l">Savaitės kcal (suma)</div></div>
     <div class="stat"><div class="n">${avg}</div><div class="l">Vidurkis / diena</div></div>
     <div class="stat"><div class="n">${days}/7</div><div class="l">Suplanuota dienų</div></div>`;
+
+  // Spausdinimo sekcija: švari lentelė + receptai
+  const printDiv = document.createElement('div');
+  printDiv.className = 'print-only';
+
+  // Lentelė
+  let ptbl = '<table class="print-cal"><thead><tr><th>Valgis</th>'
+    + DAYS.map(d=>`<th>${d.short}</th>`).join('') + '</tr></thead><tbody>';
+  SLOTS.forEach(s=>{
+    ptbl += `<tr><th>${s.label}</th>`;
+    DAYS.forEach(d=>{
+      const id = state.plan[d.key]?.[s.key];
+      const m = id!=null ? mealById(id) : null;
+      ptbl += m ? `<td>${escapeHtml(m.name)}</td>` : '<td class="empty-cell">—</td>';
+    });
+    ptbl += '</tr>';
+  });
+  ptbl += '<tr class="kcal-row"><th>Kcal / diena</th>';
+  DAYS.forEach(d=>{ const t=dayTotals(d.key); ptbl += t.kcal>0 ? `<td>${t.kcal}</td>` : '<td class="empty-cell">—</td>'; });
+  ptbl += '</tr></tbody></table>';
+
+  // Receptai
+  const catOrder2={pusryciai:0,pietus:1,uzkandis:2,vakariene:3,desertas:4};
+  const catLabel={pusryciai:'Pusryčiai',pietus:'Pietūs',uzkandis:'Užkandžiai',vakariene:'Vakarienė',desertas:'Desertai'};
+  const pm = planMeals();
+  const sorted = [...pm.entries()].sort((a,b)=>{
+    const ma=mealById(a[0]),mb=mealById(b[0]);
+    return (catOrder2[ma.cat]-catOrder2[mb.cat])||ma.name.localeCompare(mb.name,'lt');
+  });
+  let prec = '<div class="print-recipes"><h2>Savaitės receptai</h2><div class="recipes-grid">';
+  sorted.forEach(([id,dayList])=>{
+    const m=mealById(id);
+    const ings=ingredientsOf(m).join(' · ');
+    prec += `<div class="recipe-card">
+      <div class="recipe-card-name">${escapeHtml(m.name)}</div>
+      <div class="recipe-card-meta">${escapeHtml(dayList.join(', '))} &middot; ${catLabel[m.cat]||m.cat} &middot; ${m.kcal} kcal</div>
+      <div class="recipe-card-ings">${escapeHtml(ings)||'—'}</div>
+    </div>`;
+  });
+  prec += '</div></div>';
+
+  printDiv.innerHTML = ptbl + prec;
+  v.appendChild(printDiv);
 }
 function setCell(day,slot,id){
   if(!state.plan[day]) state.plan[day]={};
