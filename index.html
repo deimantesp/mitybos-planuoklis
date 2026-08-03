@@ -342,13 +342,13 @@ function ingCategory(name){
   const n = name.toLowerCase();
   if(/višt|jautien|kiaulien|lašiš|krevetė|tun[ao]|menkė|kalakut|kumpi[so]|dešr|šonin|mėsa|žuvis|file[tj]|karbonadas|šašlyk|vištienos|jautienos|kiaulienos/.test(n)) return 'mesa';
   if(/kiaušin/.test(n)) return 'kiausinis';
-  if(/jogurt|varškė|varškės|sūri[soau]|grietin|kreminis\s+sūr|mocarela|sviest|kefyras|majonez/.test(n)) return 'pienas';
+  if(/jogurt|varškė|varškės|sūri[soau]|grietin|kreminis\s+sūr|mocarela|sviest|kefyr|burat|majonez/.test(n)) return 'pienas';
   if(/pienas|pieno/.test(n)&&!/kokosų|augalin/.test(n)) return 'pienas';
-  if(/avokado|banan|obuol|citrin|uog(?!ien)|braškė|mėlyn|aviet|apelsin|mango|ananasas/.test(n)) return 'vaisiai';
-  if(/pomidor(?!ų\s+pad)|paprik|agurk|brokol|špinat|cukini|mork|svogūn|česnak|salotų\s+lapai|kopūst|bulv|baklažan|pupelė|pievagrybiai|grybai|šalot|porė|ridikėl|burokėl|krapai|petražol|seler|šparagai|žiedinis|kukurūz|lapinis/.test(n)) return 'darzoves';
-  if(/grik|avižos?|avižin|ryžiai?|ryžių|bulgur|makaron|duona|duonos|miltai|kuskus|quinoa|tortilij|bandelė|baton/.test(n)) return 'grudai';
+  if(/banan|obuol|citrin|uog(?!ien)|braškė|mėlyn|aviet|apelsin|mango|ananasas|vaisių/.test(n)) return 'vaisiai';
+  if(/avokad|pomidor(?!ų\s+pad)|paprik|agurk|brokol|špinat|cukini|mork|svogūn|česnak|salotų\s+lapai|kopūst|bulv|baklažan|pupelė|pievagrybiai|grybai|šalot|porė|ridikėl|burokėl|krapai|petražol|seler|šparagai|žiedinis|kukurūz|lapinis|žalumyn|žalymyn|daržov|vaisiai/.test(n)) return 'darzoves';
+  if(/grik|aviž|chia|ryžiai?|ryžių|bulgur|makaron|duona|duonos|miltai|kuskus|quinoa|tortilij|bandelė|baton/.test(n)) return 'grudai';
   if(/riešut|migdol|sezamo|pistacij|graikin|pekan|kanapių|linų|saulėgražų/.test(n)) return 'riesutai';
-  if(/kokosų\s+pienas|augalin[isu]\s+pienas|pomidorų\s+padažas|sojų|padaž|past[aą]/.test(n)) return 'konservai';
+  if(/kokosų\s+pienas|augalin[isu]\s+pienas|pomidorų\s+padažas|sojų|padaž|past[aą]|garstyč/.test(n)) return 'konservai';
   if(/aliej|ghee/.test(n)) return 'aliejai';
   return 'kita';
 }
