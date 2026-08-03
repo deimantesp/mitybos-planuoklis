@@ -369,11 +369,27 @@ const SHOP_CAT_GROUPS=[
 const LS = "mitybos-planas-v1";
 let state = load();
 if(!state.shopServings) state.shopServings = {};
+// Import plan from URL hash if present
+(function(){
+  try{
+    const h=location.hash;
+    if(!h.startsWith('#plan=')) return;
+    const data=JSON.parse(decodeURIComponent(escape(atob(h.slice(6)))));
+    if(data&&data.plan){ state.plan=data.plan; if(data.shopServings) state.shopServings=data.shopServings; save(); }
+    history.replaceState(null,'',location.pathname);
+  }catch(e){}
+})();
 function load(){
   try{const s=JSON.parse(localStorage.getItem(LS)); if(s&&s.plan) return s;}catch(e){}
   return {plan:{}, pool:{pusryciai:[],pietus:[],uzkandis:[],vakariene:[],desertas:[]}, checked:{}, extras:[], shopServings:{}};
 }
 function save(){ localStorage.setItem(LS, JSON.stringify(state)); }
+function sharePlan(){
+  const data={plan:state.plan,shopServings:state.shopServings};
+  const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+  const url=location.href.split('#')[0]+'#plan='+encoded;
+  navigator.clipboard.writeText(url).then(()=>{ alert('Nuoroda nukopijuota! Atsiųsk ją į telefoną ir atidaryk.'); }).catch(()=>{ prompt('Kopijuok šią nuorodą:',url); });
+}
 
 // ---- Receptų redagavimas ----
 const LS_EDITS = "mitybos-receptai-v1";
@@ -589,6 +605,7 @@ function renderCalendar(){
   v.innerHTML = `
     <div class="cal-tools">
       <button class="btn primary" onclick="window.print()">🖨️ Spausdinti / PDF</button>
+      <button class="btn" onclick="sharePlan()">🔗 Kopijuoti nuorodą</button>
       <button class="btn" id="clearBtn">🗑️ Išvalyti savaitę</button>
       <div class="hint">Pasirinkimuose rodomi <b>šią savaitę pažymėti</b> patiekalai (jei nieko nepažymėta — visi variantai).</div>
     </div>
