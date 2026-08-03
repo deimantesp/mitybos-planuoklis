@@ -367,6 +367,12 @@ const SHOP_CAT_GROUPS=[
 
 // ---- State (localStorage) ----
 const LS = "mitybos-planas-v1";
+const LS_SYNC = 'mitybos-sync-v1';
+const GIST_DESC = 'mitybos-planuoklis';
+const GIST_FILE = 'plan.json';
+let syncCfg=(()=>{try{return JSON.parse(localStorage.getItem(LS_SYNC))||{};}catch(e){return{};}})();
+function saveSyncCfg(){localStorage.setItem(LS_SYNC,JSON.stringify(syncCfg));}
+let _syncTimer=null;
 let state = load();
 if(!state.shopServings) state.shopServings = {};
 // Import plan from URL hash if present
@@ -384,12 +390,74 @@ function load(){
   try{const s=JSON.parse(localStorage.getItem(LS)); if(s&&s.plan) return s;}catch(e){}
   return {plan:{}, pool:{pusryciai:[],pietus:[],uzkandis:[],vakariene:[],desertas:[]}, checked:{}, extras:[], shopServings:{}};
 }
-function save(){ localStorage.setItem(LS, JSON.stringify(state)); }
+function save(){ localStorage.setItem(LS, JSON.stringify(state)); syncSave(); }
 function sharePlan(){
   const data={plan:state.plan,shopServings:state.shopServings};
   const encoded=encodeURIComponent(JSON.stringify(data));
   const url=location.href.split('#')[0]+'#plan='+encoded;
   navigator.clipboard.writeText(url).then(()=>{ alert('Nuoroda nukopijuota! Atsiųsk ją į telefoną ir atidaryk.'); }).catch(()=>{ prompt('Kopijuok šią nuorodą:',url); });
+}
+
+// ---- GitHub Gist Sync ----
+function setSyncStatus(txt){ const el=document.getElementById('sync-status'); if(el) el.textContent=txt; }
+
+async function gistReq(method,path,body){
+  const r=await fetch('https://api.github.com'+path,{
+    method,
+    headers:{Authorization:'token '+syncCfg.token,'Content-Type':'application/json',Accept:'application/vnd.github.v3+json'},
+    body:body?JSON.stringify(body):undefined
+  });
+  if(!r.ok) throw new Error('GitHub '+r.status);
+  return r.json();
+}
+
+async function syncSetup(token){
+  syncCfg.token=token.trim();
+  setSyncStatus('⏳');
+  try{
+    const list=await gistReq('GET','/gists?per_page=100');
+    let gist=list.find(g=>g.description===GIST_DESC);
+    if(!gist){
+      const data={plan:state.plan,shopServings:state.shopServings};
+      gist=await gistReq('POST','/gists',{description:GIST_DESC,public:false,files:{[GIST_FILE]:{content:JSON.stringify(data)}}});
+    }
+    syncCfg.gistId=gist.id;
+    saveSyncCfg();
+    await syncLoad(true);
+    showToast('☁️ Sinchronizavimas įjungtas!');
+  }catch(e){ setSyncStatus('❌'); showToast('❌ Klaida: '+e.message); }
+}
+
+async function syncLoad(rerender){
+  if(!syncCfg.token||!syncCfg.gistId) return;
+  setSyncStatus('🔄');
+  try{
+    const g=await gistReq('GET','/gists/'+syncCfg.gistId);
+    const content=g.files[GIST_FILE]?.content;
+    if(!content){ setSyncStatus('☁️'); return; }
+    const remote=JSON.parse(content);
+    if(remote.plan){ state.plan=remote.plan; if(remote.shopServings) state.shopServings=remote.shopServings; localStorage.setItem(LS,JSON.stringify(state)); }
+    if(rerender) render();
+    setSyncStatus('☁️');
+  }catch(e){ setSyncStatus('❌'); }
+}
+
+function syncSave(){
+  if(!syncCfg.token||!syncCfg.gistId) return;
+  setSyncStatus('🔄');
+  clearTimeout(_syncTimer);
+  _syncTimer=setTimeout(async()=>{
+    try{
+      await gistReq('PATCH','/gists/'+syncCfg.gistId,{files:{[GIST_FILE]:{content:JSON.stringify({plan:state.plan,shopServings:state.shopServings})}}});
+      setSyncStatus('☁️');
+    }catch(e){ setSyncStatus('❌'); }
+  },1500);
+}
+
+function openSyncSetup(){
+  const cur=syncCfg.token?'(jau nustatytas — įvesk naują arba palik tuščią)':'';
+  const token=prompt('GitHub Personal Access Token (gist scope):\n'+cur);
+  if(token&&token.trim()) syncSetup(token);
 }
 
 // ---- Receptų redagavimas ----
@@ -606,7 +674,7 @@ function renderCalendar(){
   v.innerHTML = `
     <div class="cal-tools">
       <button class="btn primary" onclick="window.print()">🖨️ Spausdinti / PDF</button>
-      <button class="btn" onclick="sharePlan()">🔗 Kopijuoti nuorodą</button>
+      <button class="btn" onclick="openSyncSetup()" id="sync-status" title="Sinchronizavimas su GitHub Gist">${syncCfg.gistId?'☁️':'🔌 Sync'}</button>
       <button class="btn" id="clearBtn">🗑️ Išvalyti savaitę</button>
       <div class="hint">Pasirinkimuose rodomi <b>šią savaitę pažymėti</b> patiekalai (jei nieko nepažymėta — visi variantai).</div>
     </div>
@@ -896,6 +964,7 @@ initEditModal();
 render();
 if(window._planImported){ showToast('✅ Planas įkeltas!'); }
 if(window._planImportError){ showToast('❌ Klaida: '+window._planImportError); }
+if(syncCfg.token&&syncCfg.gistId) syncLoad(true);
 </script>
 </body>
 </html>
