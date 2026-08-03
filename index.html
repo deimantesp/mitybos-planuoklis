@@ -160,11 +160,13 @@
     /* Receptai po kalendorium */
     .print-recipes{page-break-before:auto}
     .print-recipes h2{font-size:13px;font-weight:700;border-bottom:1.5px solid #222;padding-bottom:4px;margin:0 0 12px;page-break-after:avoid}
-    .recipes-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
-    .recipe-card{border:1px solid #ccc;border-radius:3px;padding:6px 7px;page-break-inside:avoid;break-inside:avoid}
-    .recipe-card-name{font-weight:700;font-size:9.5px;margin-bottom:1px}
+    .recipes-grid{display:grid;grid-template-columns:1fr;gap:10px}
+    .recipe-card{border:1px solid #ccc;border-radius:3px;padding:7px 9px;page-break-inside:avoid;break-inside:avoid}
+    .recipe-card-name{font-weight:700;font-size:10px;margin-bottom:1px}
     .recipe-card-meta{font-size:8px;color:#555;margin-bottom:3px}
-    .recipe-card-ings{font-size:8.5px;color:#222;line-height:1.4}
+    .recipe-card-ings{font-size:8.5px;color:#222;line-height:1.4;margin-bottom:5px}
+    .recipe-card-steps-hdr{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#555;margin:5px 0 2px;border-top:1px solid #ddd;padding-top:4px}
+    .recipe-card-steps{font-size:8.5px;color:#333;line-height:1.5;white-space:pre-line}
     .recipes-cat-block{margin-bottom:14px;break-inside:avoid}
     .recipes-cat-hdr{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555;border-bottom:1px solid #bbb;padding-bottom:3px;margin-bottom:7px}
   }
@@ -675,10 +677,12 @@ function renderCalendar(){
     prec += `<div class="recipes-cat-block"><div class="recipes-cat-hdr">${catLabel[cat]||cat}</div><div class="recipes-grid">`;
     bycat[cat].forEach(({m,dayList})=>{
       const ings=ingredientsOf(m).join(' · ');
+      const steps=m.rec?m.rec.split('\n').slice(1).filter(l=>l.trim()).join('\n').trim():'';
       prec += `<div class="recipe-card">
         <div class="recipe-card-name">${escapeHtml(m.name)}</div>
         <div class="recipe-card-meta">${escapeHtml(dayList.join(', '))} &middot; ${m.kcal} kcal</div>
         <div class="recipe-card-ings">${escapeHtml(ings)||'—'}</div>
+        ${steps?`<div class="recipe-card-steps-hdr">Gaminimas</div><div class="recipe-card-steps">${escapeHtml(steps)}</div>`:''}
       </div>`;
     });
     prec += '</div></div>';
