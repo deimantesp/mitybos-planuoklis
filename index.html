@@ -163,6 +163,8 @@
     .recipe-card-name{font-weight:700;font-size:9.5px;margin-bottom:1px}
     .recipe-card-meta{font-size:8px;color:#555;margin-bottom:3px}
     .recipe-card-ings{font-size:8.5px;color:#222;line-height:1.4}
+    .recipes-cat-block{margin-bottom:14px;break-inside:avoid}
+    .recipes-cat-hdr{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555;border-bottom:1px solid #bbb;padding-bottom:3px;margin-bottom:7px}
   }
   @media(max-width:560px){ h1{font-size:21px} .grid{grid-template-columns:1fr} }
 </style>
@@ -631,17 +633,28 @@ function renderCalendar(){
     const ma=mealById(a[0]),mb=mealById(b[0]);
     return (catOrder2[ma.cat]-catOrder2[mb.cat])||ma.name.localeCompare(mb.name,'lt');
   });
-  let prec = '<div class="print-recipes"><h2>Savaitės receptai</h2><div class="recipes-grid">';
+  // Grupuojam pagal kategoriją
+  const bycat = {};
   sorted.forEach(([id,dayList])=>{
     const m=mealById(id);
-    const ings=ingredientsOf(m).join(' · ');
-    prec += `<div class="recipe-card">
-      <div class="recipe-card-name">${escapeHtml(m.name)}</div>
-      <div class="recipe-card-meta">${escapeHtml(dayList.join(', '))} &middot; ${catLabel[m.cat]||m.cat} &middot; ${m.kcal} kcal</div>
-      <div class="recipe-card-ings">${escapeHtml(ings)||'—'}</div>
-    </div>`;
+    if(!bycat[m.cat]) bycat[m.cat]=[];
+    bycat[m.cat].push({m,dayList});
   });
-  prec += '</div></div>';
+  const catKeys = Object.keys(catOrder2).filter(k=>bycat[k]);
+  let prec = '<div class="print-recipes"><h2>Savaitės receptai</h2>';
+  catKeys.forEach(cat=>{
+    prec += `<div class="recipes-cat-block"><div class="recipes-cat-hdr">${catLabel[cat]||cat}</div><div class="recipes-grid">`;
+    bycat[cat].forEach(({m,dayList})=>{
+      const ings=ingredientsOf(m).join(' · ');
+      prec += `<div class="recipe-card">
+        <div class="recipe-card-name">${escapeHtml(m.name)}</div>
+        <div class="recipe-card-meta">${escapeHtml(dayList.join(', '))} &middot; ${m.kcal} kcal</div>
+        <div class="recipe-card-ings">${escapeHtml(ings)||'—'}</div>
+      </div>`;
+    });
+    prec += '</div></div>';
+  });
+  prec += '</div>';
 
   printDiv.innerHTML = ptbl + prec;
   v.appendChild(printDiv);
