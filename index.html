@@ -374,10 +374,11 @@ if(!state.shopServings) state.shopServings = {};
   try{
     const h=location.hash;
     if(!h.startsWith('#plan=')) return;
-    const data=JSON.parse(decodeURIComponent(escape(atob(h.slice(6)))));
-    if(data&&data.plan){ state.plan=data.plan; if(data.shopServings) state.shopServings=data.shopServings; save(); }
+    const raw=h.slice(6);
+    const data=JSON.parse(decodeURIComponent(raw));
+    if(data&&data.plan){ state.plan=data.plan; if(data.shopServings) state.shopServings=data.shopServings; save(); alert('✅ Planas įkeltas!'); }
     history.replaceState(null,'',location.pathname);
-  }catch(e){}
+  }catch(e){ console.error('Plan import:',e); }
 })();
 function load(){
   try{const s=JSON.parse(localStorage.getItem(LS)); if(s&&s.plan) return s;}catch(e){}
@@ -386,7 +387,7 @@ function load(){
 function save(){ localStorage.setItem(LS, JSON.stringify(state)); }
 function sharePlan(){
   const data={plan:state.plan,shopServings:state.shopServings};
-  const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+  const encoded=encodeURIComponent(JSON.stringify(data));
   const url=location.href.split('#')[0]+'#plan='+encoded;
   navigator.clipboard.writeText(url).then(()=>{ alert('Nuoroda nukopijuota! Atsiųsk ją į telefoną ir atidaryk.'); }).catch(()=>{ prompt('Kopijuok šią nuorodą:',url); });
 }
