@@ -376,9 +376,9 @@ if(!state.shopServings) state.shopServings = {};
     if(!h.startsWith('#plan=')) return;
     const raw=h.slice(6);
     const data=JSON.parse(decodeURIComponent(raw));
-    if(data&&data.plan){ state.plan=data.plan; if(data.shopServings) state.shopServings=data.shopServings; save(); alert('✅ Planas įkeltas!'); }
+    if(data&&data.plan){ state.plan=data.plan; if(data.shopServings) state.shopServings=data.shopServings; save(); window._planImported=true; }
     history.replaceState(null,'',location.pathname);
-  }catch(e){ console.error('Plan import:',e); }
+  }catch(e){ console.error('Plan import:',e); window._planImportError=e.message; }
 })();
 function load(){
   try{const s=JSON.parse(localStorage.getItem(LS)); if(s&&s.plan) return s;}catch(e){}
@@ -472,7 +472,7 @@ function initEditModal(){
   };
 }
 
-let activeTab = "pusryciai";
+let activeTab = window._planImported ? "cal" : "pusryciai";
 let catSearch = {};
 
 function scaleIng(ing, n){
@@ -884,9 +884,18 @@ function render(){
   else if(activeTab==="shop") renderShopping();
   else renderLibrary(activeTab);
 }
+function showToast(msg){
+  const t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1c3726;color:#fff;padding:12px 22px;border-radius:10px;font-size:15px;font-weight:600;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.3);';
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),4000);
+}
 loadEdits();
 initEditModal();
 render();
+if(window._planImported){ showToast('✅ Planas įkeltas!'); }
+if(window._planImportError){ showToast('❌ Klaida: '+window._planImportError); }
 </script>
 </body>
 </html>
