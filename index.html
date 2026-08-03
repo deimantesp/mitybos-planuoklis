@@ -100,6 +100,8 @@
   .shop-group .tag{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px;display:block}
   .shop-item{display:flex;gap:9px;align-items:flex-start;padding:5px 0;font-size:14px;border-top:1px solid var(--line)}
   .shop-item:first-of-type{border-top:none}
+  .shop-cat-hdr{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:12px 0 3px;border-top:1px solid var(--line);margin-top:4px}
+  .shop-cat-hdr + .shop-item{border-top:none}
   .shop-item input{margin-top:2px;width:17px;height:17px;accent-color:var(--moss);flex:none;cursor:pointer}
   .shop-item.checked label{text-decoration:line-through;color:var(--muted)}
   .shop-item label{cursor:pointer}
@@ -333,6 +335,33 @@ function normalizeName(name){
   if(/pomidor/.test(s)&&!/padaž|past|skardinė|^daržov/.test(s)) return 'pomidoras';
   return name;
 }
+
+function ingCategory(name){
+  const n = name.toLowerCase();
+  if(/višt|jautien|kiaulien|lašiš|krevetė|tun[ao]|menkė|kalakut|kumpi[so]|dešr|šonin|mėsa|žuvis|file[tj]|karbonadas|šašlyk|vištienos|jautienos|kiaulienos/.test(n)) return 'mesa';
+  if(/kiaušin/.test(n)) return 'kiausinis';
+  if(/jogurt|varškė|varškės|sūri[soau]|grietin|kreminis\s+sūr|mocarela|sviest|kefyras|majonez/.test(n)) return 'pienas';
+  if(/pienas|pieno/.test(n)&&!/kokosų|augalin/.test(n)) return 'pienas';
+  if(/avokado|banan|obuol|citrin|uog(?!ien)|braškė|mėlyn|aviet|apelsin|mango|ananasas/.test(n)) return 'vaisiai';
+  if(/pomidor(?!ų\s+pad)|paprik|agurk|brokol|špinat|cukini|mork|svogūn|česnak|salotų\s+lapai|kopūst|bulv|baklažan|pupelė|pievagrybiai|grybai|šalot|porė|ridikėl|burokėl|krapai|petražol|seler|šparagai|žiedinis|kukurūz|lapinis/.test(n)) return 'darzoves';
+  if(/grik|avižos?|avižin|ryžiai?|ryžių|bulgur|makaron|duona|duonos|miltai|kuskus|quinoa|tortilij|bandelė|baton/.test(n)) return 'grudai';
+  if(/riešut|migdol|sezamo|pistacij|graikin|pekan|kanapių|linų|saulėgražų/.test(n)) return 'riesutai';
+  if(/kokosų\s+pienas|augalin[isu]\s+pienas|pomidorų\s+padažas|sojų|padaž|past[aą]/.test(n)) return 'konservai';
+  if(/aliej|ghee/.test(n)) return 'aliejai';
+  return 'kita';
+}
+const SHOP_CAT_GROUPS=[
+  {key:'mesa',     label:'Mėsa ir žuvis'},
+  {key:'kiausinis',label:'Kiaušiniai'},
+  {key:'pienas',   label:'Pieno produktai'},
+  {key:'darzoves', label:'Daržovės'},
+  {key:'vaisiai',  label:'Vaisiai ir uogos'},
+  {key:'grudai',   label:'Grūdai ir kruopos'},
+  {key:'riesutai', label:'Riešutai ir sėklos'},
+  {key:'konservai',label:'Padažai ir konservai'},
+  {key:'aliejai',  label:'Aliejai'},
+  {key:'kita',     label:'Kita'},
+];
 
 // ---- State (localStorage) ----
 const LS = "mitybos-planas-v1";
@@ -773,14 +802,22 @@ function renderShopping(){
       });
     }));
     const list=[...agg.values()].sort((a,b)=>a.name.localeCompare(b.name,'lt'));
+    // Grupuojam pagal maisto kategoriją
+    const grouped={};
+    list.forEach(item=>{ const c=ingCategory(item.name); if(!grouped[c]) grouped[c]=[]; grouped[c].push(item); });
     const g=document.createElement("div"); g.className="shop-group";
     g.innerHTML=`<h3>Pirkinių sąrašas</h3><span class="tag">${list.length} produktų · iš ${slotCount} patiekalų</span>`;
-    list.forEach(({tot,hasQty,unit,name,meals})=>{
-      const disp = Math.round(tot * 10) / 10;
-      const unitStr=unit?(unit==='v.š.'||unit==='a.š.'?` ${unit} `:`${unit} `):(hasQty?' ':'');
-      const label=hasQty?`${fmtQty(disp)}${unitStr}${name}`:(name+(disp>1?` ×${Math.round(disp)}`:''));
-      const src=meals.size>1?`${meals.size} patiek.`:'';
-      g.appendChild(shopItem(label,src));
+    SHOP_CAT_GROUPS.forEach(({key,label})=>{
+      if(!grouped[key]||grouped[key].length===0) return;
+      const hdr=document.createElement('div'); hdr.className='shop-cat-hdr'; hdr.textContent=label;
+      g.appendChild(hdr);
+      grouped[key].forEach(({tot,hasQty,unit,name,meals})=>{
+        const disp=Math.round(tot*10)/10;
+        const unitStr=unit?(unit==='v.š.'||unit==='a.š.'?` ${unit} `:`${unit} `):(hasQty?' ':'');
+        const lbl=hasQty?`${fmtQty(disp)}${unitStr}${name}`:(name+(disp>1?` ×${Math.round(disp)}`:''));
+        const src=meals.size>1?`${meals.size} patiek.`:'';
+        g.appendChild(shopItem(lbl,src));
+      });
     });
     body.appendChild(g);
 
