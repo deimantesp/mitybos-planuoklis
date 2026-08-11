@@ -199,10 +199,7 @@
       <div class="edit-field"><label>B (baltymai)</label><input type="number" id="edit-b" min="0" step="0.1"></div>
       <div class="edit-field"><label>R (riebalai)</label><input type="number" id="edit-r" min="0" step="0.1"></div>
     </div>
-    <div class="edit-field" style="margin-top:6px;max-width:140px">
-      <label>Dienų skaičius <span style="font-weight:400;text-transform:none;letter-spacing:0">(1 = viena diena)</span></label>
-      <input type="number" id="edit-days" min="1" max="7" value="1">
-    </div>
+    <input type="hidden" id="edit-days" value="1">
     <div class="edit-field" style="margin-top:6px">
       <label>Ingredientai <span style="font-weight:400;text-transform:none;letter-spacing:0">(vienas per eilutę)</span></label>
       <textarea id="edit-ings" style="min-height:90px"></textarea>
@@ -696,8 +693,7 @@ function renderCalendar(){
       if(hasCur){ const m=mealById(cur); sel+=`<option value="${m.id}" selected>${escapeHtml(m.name)}</option>`; }
       sel+=opts.map(m=>`<option value="${m.id}" ${cur===m.id?"selected":""}>${escapeHtml(m.name)}</option>`).join("")+`</select>`;
       const cm = cur!=null?mealById(cur):null;
-      const spanBadge = cm&&(cm.days||1)>1?`<span class="days-badge">${cm.days}d</span>`:'';
-      const kcal = cm?`<div class="cell-kcal">${spanBadge}${cm.kcal} kcal</div>`:"";
+      const kcal = cm?`<div class="cell-kcal">${cm.kcal} kcal</div>`:"";
       body+=`<td class="cell">${sel}${kcal}</td>`;
     });
     body+="</tr>";
@@ -781,16 +777,7 @@ function renderCalendar(){
 function setCell(day,slot,id){
   if(!state.plan[day]) state.plan[day]={};
   if(id==null) delete state.plan[day][slot]; else state.plan[day][slot]=id;
-  if(id!=null){
-    const span=(mealById(id).days||1);
-    if(span>1){
-      const dayIdx=DAYS.findIndex(d=>d.key===day);
-      for(let i=1;i<span;i++){
-        const nd=DAYS[dayIdx+i];
-        if(nd){if(!state.plan[nd.key])state.plan[nd.key]={};state.plan[nd.key][slot]=id;}
-      }
-    }
-  }
+  // kiekvienas receptas = 1 diena, 1 porcija — jokio auto-span
   save();
 }
 function dayTotals(day){
@@ -844,16 +831,18 @@ function renderShopping(){
     entries.forEach(([id,days])=>{
       const m=mealById(id), ings=ingredientsOf(m);
       const srv=state.shopServings[id]||1;
+      const mult=days.length*srv; // dienų sk. × žmonių sk.
       const g=document.createElement("div"); g.className="shop-group";
-      const cnt=days.length>1?` ×${days.length}`:"";
-      g.innerHTML=`<div class="shop-group-hdr"><div><h3>${escapeHtml(m.name)}${cnt}</h3><span class="tag">${escapeHtml(days.join(", "))}</span></div><div class="meal-srv"><span class="meal-srv-label">👥</span><button class="meal-srv-btn" data-d="-1">−</button><span class="meal-srv-num">${srv}</span><button class="meal-srv-btn" data-d="1">+</button></div></div>`;
+      const dayCnt=days.length>1?` ×${days.length}d`:"";
+      const multLabel=mult>1?` = ×${mult}`:"";
+      g.innerHTML=`<div class="shop-group-hdr"><div><h3>${escapeHtml(m.name)}${dayCnt}</h3><span class="tag">${escapeHtml(days.join(", "))}</span></div><div class="meal-srv"><span class="meal-srv-label">👥</span><button class="meal-srv-btn" data-d="-1">−</button><span class="meal-srv-num">${srv}</span><button class="meal-srv-btn" data-d="1">+</button><span class="meal-srv-label" style="font-size:11px;color:var(--muted)">${multLabel}</span></div></div>`;
       g.querySelectorAll(".meal-srv-btn").forEach(btn=>{
         btn.onclick=()=>{
           state.shopServings[id]=Math.max(1,Math.min(20,(state.shopServings[id]||1)+(+btn.dataset.d)));
           save(); renderShopping();
         };
       });
-      ings.forEach(ing=>g.appendChild(shopItem(scaleIng(ing,srv))));
+      ings.forEach(ing=>g.appendChild(shopItem(scaleIng(ing,mult))));
       if(ings.length===0) g.insertAdjacentHTML("beforeend",`<div class="shop-item" style="color:var(--muted)">—</div>`);
       body.appendChild(g);
     });
