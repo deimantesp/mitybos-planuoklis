@@ -133,7 +133,9 @@
   .edit-macros .edit-field{margin-bottom:0}
   .edit-footer{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;align-items:center}
   .edit-footer .spacer{flex:1}
-  .edit-badge{display:inline-block;font-size:10px;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 6px;font-weight:700;vertical-align:middle;margin-left:5px}
+  .rev-badge{display:inline-block;font-size:10px;background:#e8f5e9;color:#2e7d32;border-radius:4px;padding:1px 6px;font-weight:700;vertical-align:middle;margin-left:5px}
+  .rev-btn{font-size:15px;padding:4px 8px}
+  .rev-btn.on{background:#e8f5e9;border-color:#81c784;color:#2e7d32}
   .edit-export-box{margin-top:14px;display:none}
   .edit-export-box textarea{width:100%;font-family:monospace;font-size:11.5px;min-height:180px;resize:vertical;padding:8px;border:1px solid var(--line);border-radius:8px;color:#444}
   .btn-danger{color:#c0392b;border-color:#e8c5c5}
@@ -457,6 +459,16 @@ function openSyncSetup(){
   if(token&&token.trim()) syncSetup(token);
 }
 
+// ---- Sutikrinta žymėjimas ----
+const LS_REVIEWED = 'mitybos-reviewed-v1';
+let reviewedMeals = (()=>{ try{ return JSON.parse(localStorage.getItem(LS_REVIEWED))||{}; }catch(e){ return{}; } })();
+function toggleReviewed(id){
+  const k=String(id);
+  if(reviewedMeals[k]) delete reviewedMeals[k]; else reviewedMeals[k]=true;
+  localStorage.setItem(LS_REVIEWED, JSON.stringify(reviewedMeals));
+  render();
+}
+
 // ---- Receptų redagavimas ----
 const LS_EDITS = "mitybos-receptai-v1";
 let editedMeals = {};
@@ -562,7 +574,9 @@ function renderTabs(){
   CATS.forEach(c=>{
     const b=document.createElement("button");
     b.className="tab"+(activeTab===c.key?" active":"");
-    b.innerHTML = c.label+` <span class="count">${byCat(c.key).length}</span>`;
+    const total=byCat(c.key).length;
+    const revd=byCat(c.key).filter(m=>reviewedMeals[String(m.id)]).length;
+    b.innerHTML = c.label+` <span class="count">${revd}/${total}</span>`;
     b.onclick=()=>{activeTab=c.key;render();};
     el.appendChild(b);
   });
@@ -612,9 +626,9 @@ function renderLibrary(catKey){
     const card=document.createElement("div");
     card.className="card"+(picked?" picked":"");
     card.dataset.id = m.id;
-    const isEd=!!editedMeals[String(m.id)];
+    const isRev=!!reviewedMeals[String(m.id)];
     card.innerHTML=`
-      <h3>${escapeHtml(m.name)}${m.src?`<span class="src-badge">${escapeHtml(m.src)}</span>`:''}${isEd?'<span class="edit-badge">✏ keista</span>':''}</h3>
+      <h3>${escapeHtml(m.name)}${m.src?`<span class="src-badge">${escapeHtml(m.src)}</span>`:''}${isRev?'<span class="rev-badge">✅ sutikrinta</span>':''}</h3>
       <div class="macros">
         <span class="chip kcal">${m.kcal} kcal</span>
         <span class="chip a"><span class="lbl">A</span>${m.a}</span>
@@ -624,6 +638,7 @@ function renderLibrary(catKey){
       <div class="actions">
         <button class="btn rec-btn">Receptas ▾</button>
         ${catKey!=='desertas'?`<button class="btn pick ${picked?'on':''}">${picked?'✓ Šią savaitę':'＋ Šią savaitę'}</button>`:''}
+        <button class="btn rev-btn${isRev?' on':''}" onclick="toggleReviewed(${m.id})" title="${isRev?'Atžymėti':'Žymėti kaip sutikrintą'}">${isRev?'✅':'☐'}</button>
         <button class="btn edit-btn" title="Redaguoti" style="margin-left:auto">✏️</button>
       </div>
       <div class="recipe">${renderRecipe(m.rec)}</div>`;
