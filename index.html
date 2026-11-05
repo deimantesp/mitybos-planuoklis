@@ -157,6 +157,37 @@
   .btn-danger:hover{background:#fdf0f0}
   .hint-sm{font-size:12px;color:var(--muted);margin-top:5px}
 
+  /* Profilių juosta */
+  .profile-bar-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 16px 0}
+  .profile-lbl{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-right:2px}
+  .profile-btn{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:999px;padding:4px 14px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap}
+  .profile-btn:hover{border-color:var(--moss-2);color:var(--ink)}
+  .profile-btn.active{background:var(--moss);color:#fff;border-color:var(--moss)}
+  .profile-add-btn{border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:3px 10px;font-size:15px;line-height:1.4;cursor:pointer;transition:.15s}
+  .profile-add-btn:hover{border-color:var(--moss);color:var(--moss)}
+  /* Profilio indikatorius viršuje */
+  .profile-bar-inner.in-planner{padding:7px 16px 5px;gap:10px;border-bottom:1px solid var(--line)}
+  .hub-back-btn{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:8px;padding:4px 10px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+  .hub-back-btn:hover{border-color:var(--moss-2);color:var(--ink)}
+  .profile-active-lbl{font-size:14px;font-weight:800;color:var(--ink);letter-spacing:-.01em}
+  .profile-active-emoji{margin-right:3px}
+  /* Hub */
+  .hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+  .hub-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 20px 16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:5px;cursor:pointer;transition:border-color .15s,transform .12s}
+  .hub-card:hover{border-color:var(--moss-2);transform:translateY(-1px)}
+  .hub-card.profile{border-left:3px solid var(--moss)}
+  .hub-card.add-new{opacity:.65;border-style:dashed}
+  .hub-card-ico{font-size:30px;line-height:1;margin-bottom:6px}
+  .hub-card-title{font-size:18px;font-weight:800;letter-spacing:-.01em}
+  .hub-card-desc{font-size:13px;color:var(--muted);line-height:1.45}
+  .hub-card-stat{font-size:12px;font-weight:700;color:var(--moss);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+  .hub-card-open{align-self:flex-start;margin-top:10px;font-size:13px;font-weight:700;color:#fff;background:var(--moss);border:none;border-radius:8px;padding:6px 14px;cursor:pointer;transition:.15s}
+  .hub-card-open:hover{background:#4a6820}
+  /* Visi receptai */
+  .all-cat-section{margin-bottom:28px}
+  .all-cat-hdr{font-size:16px;font-weight:800;letter-spacing:-.01em;padding:10px 0 8px;border-bottom:2px solid var(--line);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .all-cat-hdr .cat-cnt{font-size:12px;font-weight:600;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 8px}
+
   .print-only{display:none}
   @media print{
     @page{size:A4;margin:1.5cm 1.2cm}
@@ -196,7 +227,10 @@
   <div class="sub">Pasirink patiekalus iš bibliotekos ir sudėk savaitės valgiaraštį. Receptai iš „Laikas keistis" programų.</div>
 </header>
 
-<nav><div class="tabs" id="tabs"></div></nav>
+<nav>
+  <div class="profile-bar-inner" id="profile-bar"></div>
+  <div class="tabs" id="tabs"></div>
+</nav>
 
 <main id="view"></main>
 
@@ -379,13 +413,29 @@ const SHOP_CAT_GROUPS=[
   {key:'kita',     label:'Kita'},
 ];
 
+// ---- Profiliai ----
+const LS_PROFILES = 'mitybos-profiles-v1';
+const LS_ACTIVE_PROFILE = 'mitybos-profile-active-v1';
+function slugify(n){ return n.toLowerCase().replace(/ą/g,'a').replace(/č/g,'c').replace(/ę/g,'e').replace(/ė/g,'e').replace(/į/g,'i').replace(/š/g,'s').replace(/ų/g,'u').replace(/ū/g,'u').replace(/ž/g,'z').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
+let profiles=(()=>{ try{ return JSON.parse(localStorage.getItem(LS_PROFILES))||['Deimantė','Jonas']; }catch(e){ return ['Deimantė','Jonas']; } })();
+function saveProfiles(){ localStorage.setItem(LS_PROFILES, JSON.stringify(profiles)); }
+let activeProfile=(()=>{ const s=localStorage.getItem(LS_ACTIVE_PROFILE); return profiles.includes(s)?s:profiles[0]; })();
+function profileLSKey(){ return 'mitybos-planas-v1-'+slugify(activeProfile); }
+function profileSyncKey(){ return 'mitybos-sync-v1-'+slugify(activeProfile); }
+function gistDesc(){ return profiles.indexOf(activeProfile)===0?'mitybos-planuoklis':'mitybos-planuoklis-'+slugify(activeProfile); }
+
 // ---- State (localStorage) ----
-const LS = "mitybos-planas-v1";
-const LS_SYNC = 'mitybos-sync-v1';
-const GIST_DESC = 'mitybos-planuoklis';
+const LS = "mitybos-planas-v1"; // bazinis raktas (compat)
 const GIST_FILE = 'plan.json';
-let syncCfg=(()=>{try{return JSON.parse(localStorage.getItem(LS_SYNC))||{};}catch(e){return{};}})();
-function saveSyncCfg(){localStorage.setItem(LS_SYNC,JSON.stringify(syncCfg));}
+let syncCfg={};
+function loadSyncCfg(){
+  try{ syncCfg=JSON.parse(localStorage.getItem(profileSyncKey()))||{}; }catch(e){ syncCfg={}; }
+  if(!syncCfg.token && profiles.indexOf(activeProfile)===0){
+    try{ const old=JSON.parse(localStorage.getItem('mitybos-sync-v1')); if(old?.token){ syncCfg=old; saveSyncCfg(); } }catch(e){}
+  }
+}
+loadSyncCfg();
+function saveSyncCfg(){ localStorage.setItem(profileSyncKey(), JSON.stringify(syncCfg)); }
 let _syncTimer=null;
 let state = load();
 if(!state.shopServings) state.shopServings = {};
@@ -401,10 +451,13 @@ if(!state.shopServings) state.shopServings = {};
   }catch(e){ console.error('Plan import:',e); window._planImportError=e.message; }
 })();
 function load(){
-  try{const s=JSON.parse(localStorage.getItem(LS)); if(s&&s.plan) return s;}catch(e){}
+  try{ const s=JSON.parse(localStorage.getItem(profileLSKey())); if(s&&s.plan) return s; }catch(e){}
+  if(profiles.indexOf(activeProfile)===0){
+    try{ const s=JSON.parse(localStorage.getItem(LS)); if(s&&s.plan) return s; }catch(e){}
+  }
   return {plan:{}, pool:{pusryciai:[],pietus:[],uzkandis:[],vakariene:[],desertas:[]}, checked:{}, extras:[], shopServings:{}};
 }
-function save(){ localStorage.setItem(LS, JSON.stringify(state)); syncSave(); }
+function save(){ localStorage.setItem(profileLSKey(), JSON.stringify(state)); syncSave(); }
 function sharePlan(){
   const data={plan:state.plan,shopServings:state.shopServings};
   const encoded=encodeURIComponent(JSON.stringify(data));
@@ -430,10 +483,10 @@ async function syncSetup(token){
   setSyncStatus('⏳');
   try{
     const list=await gistReq('GET','/gists?per_page=100');
-    let gist=list.find(g=>g.description===GIST_DESC);
+    let gist=list.find(g=>g.description===gistDesc());
     if(!gist){
       const data={plan:state.plan,shopServings:state.shopServings};
-      gist=await gistReq('POST','/gists',{description:GIST_DESC,public:false,files:{[GIST_FILE]:{content:JSON.stringify(data)}}});
+      gist=await gistReq('POST','/gists',{description:gistDesc(),public:false,files:{[GIST_FILE]:{content:JSON.stringify(data)}}});
     }
     syncCfg.gistId=gist.id;
     saveSyncCfg();
@@ -450,7 +503,19 @@ async function syncLoad(rerender){
     const content=g.files[GIST_FILE]?.content;
     if(!content){ setSyncStatus('☁️'); return; }
     const remote=JSON.parse(content);
-    if(remote.plan){ state.plan=remote.plan; if(remote.shopServings) state.shopServings=remote.shopServings; localStorage.setItem(LS,JSON.stringify(state)); }
+    if(remote.plan){
+      state.plan=remote.plan;
+      if(remote.shopServings) state.shopServings=remote.shopServings;
+      if(remote.pool) state.pool=remote.pool;
+      if(remote.checked) state.checked=remote.checked;
+      if(remote.extras) state.extras=remote.extras;
+      localStorage.setItem(profileLSKey(),JSON.stringify(state));
+    }
+    if(remote.editedMeals){
+      editedMeals=remote.editedMeals;
+      localStorage.setItem(LS_EDITS,JSON.stringify(editedMeals));
+      Object.entries(editedMeals).forEach(([id,data])=>{ const m=MEALS[+id]; if(m) Object.assign(m,data); });
+    }
     if(rerender) render();
     setSyncStatus('☁️');
   }catch(e){ setSyncStatus('❌'); }
@@ -462,7 +527,8 @@ function syncSave(){
   clearTimeout(_syncTimer);
   _syncTimer=setTimeout(async()=>{
     try{
-      await gistReq('PATCH','/gists/'+syncCfg.gistId,{files:{[GIST_FILE]:{content:JSON.stringify({plan:state.plan,shopServings:state.shopServings})}}});
+      const payload={plan:state.plan,shopServings:state.shopServings,pool:state.pool,checked:state.checked,extras:state.extras,editedMeals};
+      await gistReq('PATCH','/gists/'+syncCfg.gistId,{files:{[GIST_FILE]:{content:JSON.stringify(payload)}}});
       setSyncStatus('☁️');
     }catch(e){ setSyncStatus('❌'); }
   },1500);
@@ -538,7 +604,7 @@ function initEditModal(){
       })(),
     });
     document.getElementById('edit-overlay').style.display='none';
-    renderLibrary(catKey); renderTabs();
+    if(activeTab==='all') renderAllMeals(); else renderLibrary(catKey); renderTabs();
   };
   document.getElementById('edit-cancel').onclick=()=>{ document.getElementById('edit-overlay').style.display='none'; };
   document.getElementById('edit-overlay').onclick=e=>{ if(e.target===e.currentTarget) document.getElementById('edit-overlay').style.display='none'; };
@@ -548,7 +614,7 @@ function initEditModal(){
     if(!confirm('Atstatyti pradinį receptą? Pakeitimai bus prarasti.')) return;
     revertEdit(id);
     document.getElementById('edit-overlay').style.display='none';
-    renderLibrary(catKey); renderTabs();
+    if(activeTab==='all') renderAllMeals(); else renderLibrary(catKey); renderTabs();
   };
   document.getElementById('edit-export-btn').onclick=()=>{
     const ids=Object.keys(editedMeals);
@@ -564,18 +630,182 @@ function initEditModal(){
   };
 }
 
-let activeTab = window._planImported ? "cal" : "pusryciai";
+let activeTab = window._planImported ? "cal" : "hub";
 let catSearch = {};
 let catIngFilter = {}; // {catKey: Set<normalizedName>}
 let catIngOpen = {};   // {catKey: bool}
 
-function toggleIngFilter(catKey, name){
+function toggleIngFilter(catKey, name, cb){
   if(!catIngFilter[catKey]) catIngFilter[catKey]=new Set();
   if(catIngFilter[catKey].has(name)) catIngFilter[catKey].delete(name);
   else catIngFilter[catKey].add(name);
-  renderLibrary(catKey);
+  if(cb) cb(); else renderLibrary(catKey);
 }
-function clearIngFilter(catKey){ catIngFilter[catKey]=new Set(); renderLibrary(catKey); }
+function clearIngFilter(catKey, cb){ catIngFilter[catKey]=new Set(); if(cb) cb(); else renderLibrary(catKey); }
+
+// ---- buildMealCard helper ----
+function buildMealCard(m, catKey, onPoolToggle){
+  const picked=(state.pool[catKey]||[]).includes(m.id);
+  const card=document.createElement("div");
+  card.className="card"+(picked?" picked":"");
+  card.dataset.id=m.id;
+  const isRev=!!reviewedMeals[String(m.id)];
+  card.innerHTML=`
+    <h3>${escapeHtml(m.name)}${m.src?`<span class="src-badge">${escapeHtml(m.src)}</span>`:''}${isRev?'<span class="rev-badge">✅ sutikrinta</span>':''}</h3>
+    <div class="macros">
+      <span class="chip kcal">${m.kcal} kcal</span>
+      <span class="chip a"><span class="lbl">A</span>${m.a}</span>
+      <span class="chip b"><span class="lbl">B</span>${m.b}</span>
+      <span class="chip r"><span class="lbl">R</span>${m.r}</span>
+    </div>
+    <div class="actions">
+      <button class="btn rec-btn">Receptas ▾</button>
+      ${catKey!=='desertas'?`<button class="btn pick ${picked?'on':''}">${picked?'✓ Šią savaitę':'＋ Šią savaitę'}</button>`:''}
+      <button class="btn rev-btn${isRev?' on':''}" onclick="toggleReviewed(${m.id})" title="${isRev?'Atžymėti':'Žymėti kaip sutikrintą'}">${isRev?'✅':'☐'}</button>
+      <button class="btn edit-btn" title="Redaguoti" style="margin-left:auto">✏️</button>
+    </div>
+    <div class="recipe">${renderRecipe(m.rec)}</div>`;
+  card.querySelector(".rec-btn").onclick=e=>{
+    const r=card.querySelector(".recipe"); r.classList.toggle("open");
+    e.target.textContent=r.classList.contains("open")?"Receptas ▴":"Receptas ▾";
+  };
+  const pb=card.querySelector(".pick");
+  if(pb) pb.onclick=()=>{ togglePool(catKey,m.id); if(onPoolToggle) onPoolToggle(); };
+  card.querySelector(".edit-btn").onclick=()=>openEditModal(m.id,catKey);
+  return card;
+}
+
+// ---- Ingredientų filtro skydelis ----
+function buildIngFilterPanel(el, catKey, allIngs, onFilterChange){
+  el.innerHTML='';
+  const selIngs=catIngFilter[catKey]||new Set();
+  const isOpen=!!catIngOpen[catKey];
+  const selCount=selIngs.size;
+  const toggleRow=document.createElement('div');
+  toggleRow.className='ing-filter-toggle'+(isOpen?' open':'');
+  toggleRow.innerHTML=`<span>🧩 Ingredientai</span>${selCount>0?`<span class="ing-filter-sel">${selCount}</span>`:''}<span class="ift-arrow">▾</span>`;
+  toggleRow.onclick=()=>{ catIngOpen[catKey]=!catIngOpen[catKey]; if(onFilterChange) onFilterChange(); else renderLibrary(catKey); };
+  el.appendChild(toggleRow);
+  if(isOpen){
+    const wrap=document.createElement('div');
+    wrap.className='ing-chips-wrap';
+    const chips=document.createElement('div');
+    chips.className='ing-chips';
+    allIngs.forEach(name=>{
+      const on=selIngs.has(name);
+      const chip=document.createElement('span');
+      chip.className='ing-chip'+(on?' on':'');
+      chip.textContent=name;
+      chip.onclick=()=>toggleIngFilter(catKey,name,onFilterChange);
+      chips.appendChild(chip);
+    });
+    wrap.appendChild(chips);
+    if(selCount>0){
+      const acts=document.createElement('div');
+      acts.className='ing-filter-actions';
+      const cb=document.createElement('button');
+      cb.className='btn ing-clear-btn';
+      cb.textContent='× Išvalyti filtrą';
+      cb.onclick=e=>{ e.stopPropagation(); clearIngFilter(catKey,onFilterChange); };
+      acts.appendChild(cb);
+      wrap.appendChild(acts);
+    }
+    el.appendChild(wrap);
+  }
+}
+
+// ---- Hub ir profiliai ----
+function goHub(){ activeTab='hub'; render(); }
+function renderProfileBar(){
+  const el=document.getElementById('profile-bar');
+  if(!el) return;
+  if(activeTab==='hub'){ el.innerHTML=''; el.style.display='none'; return; }
+  el.style.display='';
+  el.className='profile-bar-inner in-planner';
+  const emoji = activeProfile==='Deimantė'?'👩':activeProfile==='Jonas'?'👨':'👤';
+  el.innerHTML=`<button class="hub-back-btn" onclick="goHub()">⌂ Hub</button><span class="profile-active-lbl"><span class="profile-active-emoji">${emoji}</span>${escapeHtml(activeProfile)}</span>`;
+}
+
+function profileDaysPlanned(profName){
+  let s = profName===activeProfile ? state : (()=>{
+    try{ const d=JSON.parse(localStorage.getItem('mitybos-planas-v1-'+slugify(profName))); if(d?.plan) return d; }catch(e){}
+    if(profiles.indexOf(profName)===0){ try{ const d=JSON.parse(localStorage.getItem(LS)); if(d?.plan) return d; }catch(e){} }
+    return {};
+  })();
+  let days=0;
+  if(s.plan) DAYS.forEach(d=>{ if(SLOTS.some(sl=>s.plan[d.key]?.[sl.key]!=null)) days++; });
+  return days;
+}
+
+function renderHub(){
+  const v=document.getElementById('view');
+  const totalMeals=MEALS.length;
+  const revdMeals=MEALS.filter(m=>reviewedMeals[String(m.id)]).length;
+  let html=`<div class="hub-grid">`;
+  html+=`<div class="hub-card" data-action="all">
+    <div class="hub-card-ico">📋</div>
+    <div class="hub-card-title">Visi receptai</div>
+    <div class="hub-card-desc">Bendrasis receptų sąrašas — redaguoti, peržiūrėti, sutikrinti</div>
+    <div class="hub-card-stat">${revdMeals}/${totalMeals} sutikrinta</div>
+    <button class="hub-card-open">Atidaryti →</button>
+  </div>`;
+  profiles.forEach((p,pi)=>{
+    const days=profileDaysPlanned(p);
+    const emoji=p==='Deimantė'?'👩':p==='Jonas'?'👨':'👤';
+    html+=`<div class="hub-card profile" data-pi="${pi}">
+      <div class="hub-card-ico">${emoji}</div>
+      <div class="hub-card-title">${escapeHtml(p)}</div>
+      <div class="hub-card-desc">Savaitės planas, pirkinių sąrašas, receptų pasirinkimas</div>
+      <div class="hub-card-stat">${days}/7 dienų suplanuota šią savaitę</div>
+      <button class="hub-card-open" data-pi="${pi}">Atidaryti →</button>
+    </div>`;
+  });
+  html+=`<div class="hub-card add-new" data-action="add">
+    <div class="hub-card-ico">＋</div>
+    <div class="hub-card-title">Pridėti paskyrą</div>
+    <div class="hub-card-desc">Sukurti naują profilį (pvz. Mama, Vaikas)</div>
+  </div>`;
+  html+=`</div>`;
+  v.innerHTML=html;
+  // Wire up clicks after innerHTML (avoid onclick with special chars in attributes)
+  v.querySelector('[data-action="all"]').onclick=()=>openAllMeals();
+  v.querySelector('[data-action="all"] .hub-card-open').onclick=e=>{ e.stopPropagation(); openAllMeals(); };
+  v.querySelectorAll('.hub-card[data-pi]').forEach(card=>{
+    const p=profiles[+card.dataset.pi];
+    card.onclick=()=>openProfile(p);
+    const btn=card.querySelector('.hub-card-open');
+    if(btn) btn.onclick=e=>{ e.stopPropagation(); openProfile(p); };
+  });
+  const addCard=v.querySelector('[data-action="add"]');
+  if(addCard) addCard.onclick=()=>addProfile();
+}
+
+function openAllMeals(){
+  activeTab='all'; allSearch=''; render();
+}
+function openProfile(name){
+  if(name!==activeProfile){
+    save();
+    activeProfile=name;
+    localStorage.setItem(LS_ACTIVE_PROFILE,name);
+    loadSyncCfg();
+    state=load();
+    if(!state.shopServings) state.shopServings={};
+    if(!state.pool) state.pool={pusryciai:[],pietus:[],uzkandis:[],vakariene:[],desertas:[]};
+    if(!state.extras) state.extras=[];
+  }
+  activeTab='all'; allSearch=''; render();
+}
+function switchProfile(name){ openProfile(name); }
+function addProfile(){
+  const name=prompt('Naujos paskyros pavadinimas (pvz. Mama, Vaikas):');
+  if(!name||!name.trim()) return;
+  const trimmed=name.trim();
+  if(profiles.includes(trimmed)){ alert('Tokia paskyra jau yra.'); return; }
+  profiles.push(trimmed);
+  saveProfiles();
+  openProfile(trimmed);
+}
 
 function scaleIng(ing, n){
   if(!n || n <= 1) return ing;
@@ -596,6 +826,14 @@ function matchesSearch(m, q) {
 function renderTabs(){
   const el = document.getElementById("tabs");
   el.innerHTML = "";
+  if(activeTab==='hub') return;
+  const allBtn=document.createElement("button");
+  allBtn.className="tab"+(activeTab==="all"?" active":"");
+  const totalAll=MEALS.length;
+  const revdAll=MEALS.filter(m=>reviewedMeals[String(m.id)]).length;
+  allBtn.innerHTML=`📋 Visi receptai <span class="count">${revdAll}/${totalAll}</span>`;
+  allBtn.onclick=()=>{activeTab="all";allSearch='';render();};
+  el.appendChild(allBtn);
   CATS.forEach(c=>{
     const b=document.createElement("button");
     b.className="tab"+(activeTab===c.key?" active":"");
@@ -633,12 +871,10 @@ function renderRecipe(rec){
 
 // ---- Library view ----
 function renderLibrary(catKey){
-  const cat = CATS.find(c=>c.key===catKey);
   const meals = byCat(catKey);
   const v=document.getElementById("view");
   const poolCount = (state.pool[catKey]||[]).length;
 
-  // Surinkti visus unikalius ingredientus šioje kategorijoje
   const ingSet=new Set();
   meals.forEach(m=>ingredientsOf(m).forEach(ing=>{
     const n=normalizeName(parseIng(ing).name); if(n) ingSet.add(n);
@@ -647,7 +883,7 @@ function renderLibrary(catKey){
 
   v.innerHTML = `
     <div class="toolbar">
-      <div class="hint">Pažymėk <b>„＋ Šią savaitę"</b> patiekalus, kuriuos norėtum valgyti — jie atsiras kalendoriaus pasirinkimuose.
+      <div class="hint">Pažymėk <b>„＋ Šią savaitę"</b> patiekalus — jie atsiras kalendoriaus pasirinkimuose.
       ${catKey!=='desertas'?`<b>${poolCount}</b> pažymėta šiai savaitei.`:''}</div>
     </div>
     <div class="ing-filter-panel" id="ing-filter-panel"></div>
@@ -656,74 +892,10 @@ function renderLibrary(catKey){
     <div class="no-results" id="no-results">Nieko nerasta.</div>`;
   const grid=v.querySelector("#grid");
   meals.forEach(m=>{
-    const picked = (state.pool[catKey]||[]).includes(m.id);
-    const card=document.createElement("div");
-    card.className="card"+(picked?" picked":"");
-    card.dataset.id = m.id;
-    const isRev=!!reviewedMeals[String(m.id)];
-    card.innerHTML=`
-      <h3>${escapeHtml(m.name)}${m.src?`<span class="src-badge">${escapeHtml(m.src)}</span>`:''}${isRev?'<span class="rev-badge">✅ sutikrinta</span>':''}</h3>
-      <div class="macros">
-        <span class="chip kcal">${m.kcal} kcal</span>
-        <span class="chip a"><span class="lbl">A</span>${m.a}</span>
-        <span class="chip b"><span class="lbl">B</span>${m.b}</span>
-        <span class="chip r"><span class="lbl">R</span>${m.r}</span>
-      </div>
-      <div class="actions">
-        <button class="btn rec-btn">Receptas ▾</button>
-        ${catKey!=='desertas'?`<button class="btn pick ${picked?'on':''}">${picked?'✓ Šią savaitę':'＋ Šią savaitę'}</button>`:''}
-        <button class="btn rev-btn${isRev?' on':''}" onclick="toggleReviewed(${m.id})" title="${isRev?'Atžymėti':'Žymėti kaip sutikrintą'}">${isRev?'✅':'☐'}</button>
-        <button class="btn edit-btn" title="Redaguoti" style="margin-left:auto">✏️</button>
-      </div>
-      <div class="recipe">${renderRecipe(m.rec)}</div>`;
-    card.querySelector(".rec-btn").onclick=e=>{
-      const r=card.querySelector(".recipe"); r.classList.toggle("open");
-      e.target.textContent = r.classList.contains("open")?"Receptas ▴":"Receptas ▾";
-    };
-    const pb=card.querySelector(".pick");
-    if(pb) pb.onclick=()=>{ togglePool(catKey,m.id); renderLibrary(catKey); renderTabs(); };
-    card.querySelector(".edit-btn").onclick=()=>openEditModal(m.id,catKey);
-    grid.appendChild(card);
+    grid.appendChild(buildMealCard(m, catKey, ()=>{ renderLibrary(catKey); renderTabs(); }));
   });
 
-  // Sukurti ingredientų filtro skydelį
-  const filterPanel = v.querySelector('#ing-filter-panel');
-  const selIngs = catIngFilter[catKey] || new Set();
-  const isOpen = !!catIngOpen[catKey];
-  const selCount = selIngs.size;
-
-  const toggleRow = document.createElement('div');
-  toggleRow.className = 'ing-filter-toggle'+(isOpen?' open':'');
-  toggleRow.innerHTML = `<span>🧩 Ingredientai</span>${selCount>0?`<span class="ing-filter-sel">${selCount}</span>`:''}<span class="ift-arrow">▾</span>`;
-  toggleRow.onclick = ()=>{ catIngOpen[catKey]=!catIngOpen[catKey]; renderLibrary(catKey); };
-  filterPanel.appendChild(toggleRow);
-
-  if(isOpen){
-    const wrap = document.createElement('div');
-    wrap.className = 'ing-chips-wrap';
-    const chips = document.createElement('div');
-    chips.className = 'ing-chips';
-    allIngs.forEach(name=>{
-      const on = selIngs.has(name);
-      const chip = document.createElement('span');
-      chip.className = 'ing-chip'+(on?' on':'');
-      chip.textContent = name;
-      chip.onclick = ()=>toggleIngFilter(catKey, name);
-      chips.appendChild(chip);
-    });
-    wrap.appendChild(chips);
-    if(selCount>0){
-      const acts = document.createElement('div');
-      acts.className = 'ing-filter-actions';
-      const cb = document.createElement('button');
-      cb.className = 'btn ing-clear-btn';
-      cb.textContent = '× Išvalyti filtrą';
-      cb.onclick = e=>{ e.stopPropagation(); clearIngFilter(catKey); };
-      acts.appendChild(cb);
-      wrap.appendChild(acts);
-    }
-    filterPanel.appendChild(wrap);
-  }
+  buildIngFilterPanel(v.querySelector('#ing-filter-panel'), catKey, allIngs, ()=>renderLibrary(catKey));
 
   const searchEl = v.querySelector('#cat-search');
   const noResults = v.querySelector('#no-results');
@@ -741,11 +913,75 @@ function renderLibrary(catKey){
       card.style.display = show ? '' : 'none';
       if(show) visible++;
     });
-    noResults.classList.toggle('visible', visible===0 && (q.length>0||selIngs.size>0));
+    noResults.classList.toggle('visible', visible===0 && (q.length>0||sel.size>0));
   }
   searchEl.oninput = e => applyFilter(e.target.value.trim());
   applyFilter(catSearch[catKey] || '');
 }
+// ---- Visi receptai ----
+let allSearch = '';
+function renderAllMeals(){
+  const scrollY = window.scrollY;
+  const v = document.getElementById("view");
+  v.innerHTML = `
+    <input type="search" class="cat-search" id="all-search" placeholder="Ieškoti receptų…" value="${allSearch.replace(/"/g,'&quot;')}">
+    <div id="all-body"></div>`;
+  const body = v.querySelector('#all-body');
+  CATS.forEach(cat=>{
+    const meals = byCat(cat.key);
+    const section = document.createElement('div');
+    section.className = 'all-cat-section';
+    section.dataset.cat = cat.key;
+    const revd = meals.filter(m=>reviewedMeals[String(m.id)]).length;
+    const hdr = document.createElement('div');
+    hdr.className = 'all-cat-hdr';
+    hdr.innerHTML = `${cat.label} <span class="cat-cnt">${revd}/${meals.length}</span>`;
+    section.appendChild(hdr);
+    const ingSet = new Set();
+    meals.forEach(m=>ingredientsOf(m).forEach(ing=>{
+      const n=normalizeName(parseIng(ing).name); if(n) ingSet.add(n);
+    }));
+    const allIngs = [...ingSet].sort((a,b)=>a.localeCompare(b,'lt'));
+    const fp = document.createElement('div');
+    fp.className = 'ing-filter-panel';
+    section.appendChild(fp);
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    meals.forEach(m=>{ grid.appendChild(buildMealCard(m, cat.key, ()=>{ renderAllMeals(); renderTabs(); })); });
+    section.appendChild(grid);
+    const nr = document.createElement('div');
+    nr.className = 'no-results';
+    section.appendChild(nr);
+    body.appendChild(section);
+    buildIngFilterPanel(fp, cat.key, allIngs, ()=>renderAllMeals());
+  });
+  function applyAllFilter(q){
+    allSearch = q;
+    CATS.forEach(cat=>{
+      const sel = catIngFilter[cat.key] || new Set();
+      const section = body.querySelector('[data-cat="'+cat.key+'"]');
+      if(!section) return;
+      const grid = section.querySelector('.grid');
+      const nr = section.querySelector('.no-results');
+      let visible = 0;
+      grid.querySelectorAll('.card').forEach(card=>{
+        const m = mealById(+card.dataset.id);
+        const matchText = matchesSearch(m, q);
+        const matchIngs = sel.size===0 || [...sel].every(n=>
+          ingredientsOf(m).some(ing=>normalizeName(parseIng(ing).name)===n)
+        );
+        const show = matchText && matchIngs;
+        card.style.display = show ? '' : 'none';
+        if(show) visible++;
+      });
+      if(nr) nr.classList.toggle('visible', visible===0 && (q.length>0||sel.size>0));
+    });
+  }
+  v.querySelector('#all-search').oninput = e => applyAllFilter(e.target.value.trim());
+  applyAllFilter(allSearch);
+  requestAnimationFrame(()=>window.scrollTo(0, scrollY));
+}
+
 function togglePool(cat,id){
   const arr=state.pool[cat]||(state.pool[cat]=[]);
   const i=arr.indexOf(id);
@@ -1029,9 +1265,12 @@ function shopItem(ing, src){
 }
 
 function render(){
+  renderProfileBar();
   renderTabs();
-  if(activeTab==="cal") renderCalendar();
+  if(activeTab==="hub") renderHub();
+  else if(activeTab==="cal") renderCalendar();
   else if(activeTab==="shop") renderShopping();
+  else if(activeTab==="all") renderAllMeals();
   else renderLibrary(activeTab);
 }
 function showToast(msg){
@@ -1043,6 +1282,7 @@ function showToast(msg){
 }
 loadEdits();
 initEditModal();
+renderProfileBar();
 render();
 if(window._planImported){ showToast('✅ Planas įkeltas!'); }
 if(window._planImportError){ showToast('❌ Klaida: '+window._planImportError); }
