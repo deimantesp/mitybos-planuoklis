@@ -447,6 +447,18 @@ function gistDesc(){ return profiles.indexOf(activeProfile)===0?'mitybos-planuok
 // ---- State (localStorage) ----
 const LS = "mitybos-planas-v1"; // bazinis raktas (compat)
 const GIST_FILE = 'plan.json';
+
+// Shared recipes Gist constants (declared early so loadRecipesCfg can run after loadSyncCfg)
+const GIST_RECIPES_DESC='mitybos-planuoklis-receptai';
+const GIST_RECIPES_FILE='receptai.json';
+const LS_RECIPES_CFG='mitybos-receptai-sync-v1';
+let recipesCfg={};
+function loadRecipesCfg(){
+  try{ recipesCfg=JSON.parse(localStorage.getItem(LS_RECIPES_CFG))||{}; }catch(e){ recipesCfg={}; }
+  if(!recipesCfg.token && syncCfg.token) recipesCfg.token=syncCfg.token;
+}
+function saveRecipesCfg(){ localStorage.setItem(LS_RECIPES_CFG,JSON.stringify(recipesCfg)); }
+
 let syncCfg={};
 function loadSyncCfg(){
   try{ syncCfg=JSON.parse(localStorage.getItem(profileSyncKey()))||{}; }catch(e){ syncCfg={}; }
@@ -455,6 +467,7 @@ function loadSyncCfg(){
   }
 }
 loadSyncCfg();
+loadRecipesCfg();
 function saveSyncCfg(){ localStorage.setItem(profileSyncKey(), JSON.stringify(syncCfg)); }
 let _syncTimer=null;
 let state = load();
@@ -488,14 +501,49 @@ function sharePlan(){
 // ---- GitHub Gist Sync ----
 function setSyncStatus(txt){ const el=document.getElementById('sync-status'); if(el) el.textContent=txt; }
 
-async function gistReq(method,path,body){
+// Generic Gist request with explicit token (used for shared recipes Gist)
+async function gistReqT(token,method,path,body){
   const r=await fetch('https://api.github.com'+path,{
     method,
-    headers:{Authorization:'token '+syncCfg.token,'Content-Type':'application/json',Accept:'application/vnd.github.v3+json'},
+    headers:{Authorization:'token '+token,'Content-Type':'application/json',Accept:'application/vnd.github.v3+json'},
     body:body?JSON.stringify(body):undefined
   });
   if(!r.ok) throw new Error('GitHub '+r.status);
   return r.json();
+}
+async function gistReq(method,path,body){ return gistReqT(syncCfg.token,method,path,body); }
+
+async function ensureRecipesGist(token){
+  const t=token||recipesCfg.token||syncCfg.token;
+  if(!t) return;
+  if(recipesCfg.gistId){ recipesCfg.token=t; return; }
+  try{
+    const list=await gistReqT(t,'GET','/gists?per_page=100');
+    let rg=list.find(g=>g.description===GIST_RECIPES_DESC);
+    if(!rg) rg=await gistReqT(t,'POST','/gists',{description:GIST_RECIPES_DESC,public:false,files:{[GIST_RECIPES_FILE]:{content:JSON.stringify(editedMeals)}}});
+    recipesCfg={token:t,gistId:rg.id};
+    saveRecipesCfg();
+  }catch(e){ console.log('recipesgist:',e); }
+}
+
+async function syncRecipesLoad(){
+  if(!recipesCfg.token||!recipesCfg.gistId) return;
+  try{
+    const g=await gistReqT(recipesCfg.token,'GET','/gists/'+recipesCfg.gistId);
+    const c=g.files[GIST_RECIPES_FILE]?.content;
+    if(!c) return;
+    const remote=JSON.parse(c);
+    editedMeals={...editedMeals,...remote}; // merge: remote wins, local extras kept
+    localStorage.setItem(LS_EDITS,JSON.stringify(editedMeals));
+    Object.entries(editedMeals).forEach(([id,d])=>{ const m=MEALS[+id]; if(m) Object.assign(m,d); });
+  }catch(e){ console.log('recipesgist load:',e); }
+}
+
+async function syncRecipesSave(){
+  if(!recipesCfg.token||!recipesCfg.gistId) return;
+  try{
+    await gistReqT(recipesCfg.token,'PATCH','/gists/'+recipesCfg.gistId,{files:{[GIST_RECIPES_FILE]:{content:JSON.stringify(editedMeals)}}});
+  }catch(e){ console.log('recipesgist save:',e); }
 }
 
 async function syncSetup(token){
@@ -510,6 +558,7 @@ async function syncSetup(token){
     }
     syncCfg.gistId=gist.id;
     saveSyncCfg();
+    await ensureRecipesGist(token.trim()); // set up shared recipes Gist
     await syncLoad(true);
     showToast('☁️ Sinchronizavimas įjungtas!');
   }catch(e){ setSyncStatus('❌'); showToast('❌ Klaida: '+e.message); }
@@ -531,10 +580,13 @@ async function syncLoad(rerender){
       if(remote.extras) state.extras=remote.extras;
       localStorage.setItem(profileLSKey(),JSON.stringify(state));
     }
-    if(remote.editedMeals){
-      editedMeals=remote.editedMeals;
+    // Load editedMeals from shared Gist; fall back to per-profile Gist (old compat)
+    if(recipesCfg.gistId){
+      await syncRecipesLoad();
+    } else if(remote.editedMeals){
+      editedMeals={...editedMeals,...remote.editedMeals};
       localStorage.setItem(LS_EDITS,JSON.stringify(editedMeals));
-      Object.entries(editedMeals).forEach(([id,data])=>{ const m=MEALS[+id]; if(m) Object.assign(m,data); });
+      Object.entries(editedMeals).forEach(([id,d])=>{ const m=MEALS[+id]; if(m) Object.assign(m,d); });
     }
     if(rerender) render();
     setSyncStatus('☁️');
@@ -547,8 +599,12 @@ function syncSave(){
   clearTimeout(_syncTimer);
   _syncTimer=setTimeout(async()=>{
     try{
-      const payload={plan:state.plan,shopServings:state.shopServings,pool:state.pool,checked:state.checked,extras:state.extras,editedMeals};
+      // Per-profile Gist: plan data only (no editedMeals)
+      const payload={plan:state.plan,shopServings:state.shopServings,pool:state.pool,checked:state.checked,extras:state.extras};
       await gistReq('PATCH','/gists/'+syncCfg.gistId,{files:{[GIST_FILE]:{content:JSON.stringify(payload)}}});
+      // Shared recipes Gist: editedMeals (auto-create if needed)
+      if(!recipesCfg.gistId) await ensureRecipesGist();
+      await syncRecipesSave();
       setSyncStatus('☁️');
     }catch(e){ setSyncStatus('❌'); }
   },1500);
@@ -835,6 +891,7 @@ function openProfile(name){
     activeProfile=name;
     localStorage.setItem(LS_ACTIVE_PROFILE,name);
     loadSyncCfg();
+    loadRecipesCfg();
     state=load();
     if(!state.shopServings) state.shopServings={};
     if(!state.pool) state.pool={pusryciai:[],pietus:[],uzkandis:[],vakariene:[],desertas:[]};
@@ -1327,12 +1384,23 @@ function showToast(msg){
   setTimeout(()=>t.remove(),4000);
 }
 loadEdits();
+// Same-device multi-tab: when another tab saves editedMeals, merge here
+window.addEventListener('storage', e=>{
+  if(e.key===LS_EDITS && e.newValue){
+    try{
+      const updated=JSON.parse(e.newValue);
+      editedMeals={...editedMeals,...updated};
+      Object.entries(editedMeals).forEach(([id,d])=>{ const m=MEALS[+id]; if(m) Object.assign(m,d); });
+      render();
+    }catch(ex){}
+  }
+});
 initEditModal();
 renderProfileBar();
 render();
 if(window._planImported){ showToast('✅ Planas įkeltas!'); }
 if(window._planImportError){ showToast('❌ Klaida: '+window._planImportError); }
-if(syncCfg.token&&syncCfg.gistId) syncLoad(true);
+if(syncCfg.token&&syncCfg.gistId) ensureRecipesGist().then(()=>syncLoad(true));
 </script>
 </body>
 </html>
